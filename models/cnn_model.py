@@ -4,8 +4,7 @@ from torch.utils.data import DataLoader
 
 
 # Kategorijos — turi sutapti su data_loader.py
-CATEGORIES = ["food", "portrait", "landscape", "product", "lifestyle"]
-NUM_CLASSES = len(CATEGORIES)
+from utils.constants import CATEGORIES, NUM_CLASSES
 
 
 class CNNModel(nn.Module):

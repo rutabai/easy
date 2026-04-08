@@ -6,10 +6,9 @@ from sqlalchemy.orm import Session
 from database.models import TrainingImage
 
 # Kategorijos
-CATEGORIES = ["food", "portrait", "landscape", "product", "lifestyle"]
+from utils.constants import CATEGORIES, SPLIT_RATIOS
 
 # Duomenų padalijimas
-SPLIT_RATIOS = {"train": 0.70, "val": 0.15, "test": 0.15}
 
 # Atkartojamas atsitiktinumas
 RANDOM_SEED = 42

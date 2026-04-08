@@ -2,12 +2,9 @@ from database.models import Post, PostUpload, Upload
 from sqlalchemy.orm import Session
 
 # Limitas pagal posto tipą
-MAX_UPLOADS = {"story": 1, "carousel": 10}
-MIN_UPLOADS = {"story": 1, "carousel": 2}
+from utils.constants import MAX_UPLOADS, MIN_UPLOADS, VALID_GOALS, VALID_CTA_TYPES, SLIDE_TYPES
 
 # Galimos reikšmės
-VALID_GOALS     = ["sell", "inform", "engage", "brand_awareness", "traffic"]
-VALID_CTA_TYPES = ["visit_shop", "visit_profile", "send_message", "save_post", "comment", "click_link"]
 
 # Slide tipo aprašymai:
 # single → story tipo postas su viena nuotrauka

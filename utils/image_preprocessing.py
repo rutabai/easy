@@ -4,7 +4,7 @@ from PIL import Image as PILImage
 import os
 
 # Standartinis dydis visiems modeliams
-IMAGE_SIZE = (224, 224)
+from utils.constants import IMAGE_SIZE
 
 # ImageNet normalizacijos reikšmės (tinka CNN ir ViT)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
