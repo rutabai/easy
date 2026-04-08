@@ -1,0 +1,30 @@
+# Virtual environment
+venv/
+
+# Data (per didelė į GitHub)
+data/
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Database
+*.db
+*.sqlite3
+
+# Models (per dideli į GitHub)
+*.pth
+*.h5
+*.pkl
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.idea/
