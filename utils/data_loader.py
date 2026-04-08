@@ -10,12 +10,9 @@ CATEGORIES = ["food", "portrait", "landscape", "product", "lifestyle"]
 # Duomenų padalijimas
 SPLIT_RATIOS = {"train": 0.70, "val": 0.15, "test": 0.15}
 
-# Nuotraukų dydis modeliui
-IMAGE_SIZE = (224, 224)
-
 
 def get_image_info(filepath: str) -> dict:
-    """Gauna nuotraukos metaduomenis"""
+    """Gauna nuotraukos metaduomenis DB įrašymui"""
     try:
         with PILImage.open(filepath) as img:
             width, height = img.size
@@ -26,7 +23,7 @@ def get_image_info(filepath: str) -> dict:
 
 
 def assign_split(index: int, total: int) -> str:
-    """Priskiria split pagal indeksą"""
+    """Priskiria split pagal indeksą (70/15/15)"""
     train_end = int(total * SPLIT_RATIOS["train"])
     val_end = train_end + int(total * SPLIT_RATIOS["val"])
 
@@ -40,7 +37,7 @@ def assign_split(index: int, total: int) -> str:
 
 def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
     """
-    Įkelia nuotraukų informaciją į duomenų bazę.
+    Įkelia nuotraukų metaduomenis į DB.
     data_dir struktūra:
         data/
         ├── food/
@@ -100,7 +97,7 @@ def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
 
 def add_single_image(filepath: str, category: str, split: str,
                      db: Session, source: str = "manual") -> TrainingImage:
-    """Prideda vieną nuotrauką į treniravimo duomenis"""
+    """Prideda vieną nuotrauką į treniravimo duomenis per Flask UI"""
     if category not in CATEGORIES:
         raise ValueError(f"Neteisinga kategorija: {category}. Galimos: {CATEGORIES}")
 
@@ -111,10 +108,9 @@ def add_single_image(filepath: str, category: str, split: str,
         raise FileNotFoundError(f"Failas nerastas: {filepath}")
 
     info = get_image_info(filepath)
-    filename = os.path.basename(filepath)
 
     image = TrainingImage(
-        filename=filename,
+        filename=os.path.basename(filepath),
         filepath=filepath,
         category=category,
         split=split,
@@ -130,7 +126,7 @@ def add_single_image(filepath: str, category: str, split: str,
 
 
 def get_stats(db: Session) -> dict:
-    """Grąžina statistiką apie duomenų bazę"""
+    """Grąžina statistiką apie treniravimo duomenų bazę"""
     stats = {}
     for category in CATEGORIES:
         stats[category] = {}
@@ -141,19 +137,3 @@ def get_stats(db: Session) -> dict:
             ).count()
             stats[category][split] = count
     return stats
-
-
-def assign_slide_types(count: int) -> list[str]:
-    """
-    Priskiria slide_type kiekvienai nuotraukai pagal kiekį.
-    1 nuotrauka  → ["single"]
-    2 nuotraukos → ["hook", "cta"]
-    3+ nuotraukos → ["hook", "story"..., "cta"]
-    """
-    if count == 1:
-        return ["single"]
-    elif count == 2:
-        return ["hook", "cta"]
-    else:
-        middle = ["story"] * (count - 2)
-        return ["hook"] + middle + ["cta"]
