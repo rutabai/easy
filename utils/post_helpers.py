@@ -1,102 +1,122 @@
-from database.models import Post, PostUpload, Upload
+from database.models import Post, PostUpload
 from sqlalchemy.orm import Session
 
 # Limitas pagal posto tipą
-MAX_UPLOADS = {
-    "story": 1,
-    "carousel": 10
-}
-MIN_UPLOADS = {
-    "story": 1,
-    "carousel": 2
-}
+MAX_UPLOADS = {"story": 1, "carousel": 10}
+MIN_UPLOADS = {"story": 1, "carousel": 2}
+
+# Galimos reikšmės
+VALID_GOALS    = ["sell", "inform", "engage", "brand_awareness", "traffic"]
+VALID_CTA_TYPES = ["visit_shop", "visit_profile", "send_message", "save_post", "comment", "click_link"]
+
+# Slide tipo aprašymai:
+# single → story tipo postas su viena nuotrauka
+# hook   → pirma carousel skaidrė
+# story  → vidurinės carousel skaidrės
+# cta    → paskutinė carousel skaidrė
+
+
+def validate_upload_count(post_type: str, count: int) -> tuple[bool, str]:
+    """Tikrina ar nuotraukų skaičius atitinka posto tipą."""
+    if post_type not in MIN_UPLOADS:
+        return False, f"Nežinomas posto tipas: {post_type}. Galimi: {list(MIN_UPLOADS.keys())}"
+    if count < MIN_UPLOADS[post_type]:
+        return False, f"{post_type.capitalize()} tipui reikia mažiausiai {MIN_UPLOADS[post_type]} nuotraukų"
+    if count > MAX_UPLOADS[post_type]:
+        return False, f"{post_type.capitalize()} tipui galima daugiausiai {MAX_UPLOADS[post_type]} nuotraukų"
+    return True, ""
 
 
 def assign_slide_types(count: int) -> list[str]:
     """
     Priskiria slide_type kiekvienai nuotraukai pagal kiekį.
-
-    1 nuotrauka  → ["single"]
-    2 nuotraukos → ["hook", "cta"]
-    3+ nuotraukos → ["hook", "story"..., "cta"]
+    1 → ["single"]
+    2 → ["hook", "cta"]
+    3+ → ["hook", "story"..., "cta"]
     """
+    if count < MIN_UPLOADS["story"]:
+        raise ValueError(f"Nuotraukų skaičius negali būti mažesnis nei {MIN_UPLOADS['story']}")
+    if count > MAX_UPLOADS["carousel"]:
+        raise ValueError(f"Nuotraukų skaičius negali viršyti {MAX_UPLOADS['carousel']}")
+
     if count == 1:
         return ["single"]
-    elif count == 2:
+    elif count == MIN_UPLOADS["carousel"]:
         return ["hook", "cta"]
     else:
         middle = ["story"] * (count - 2)
         return ["hook"] + middle + ["cta"]
 
 
-def validate_upload_count(post_type: str, count: int) -> tuple[bool, str]:
-    """
-    Tikrina ar nuotraukų skaičius atitinka posto tipą.
-    Grąžina (True, "") jei gerai, arba (False, klaidos_pranešimas) jei blogai.
-    """
-    if post_type == "story":
-        if count != 1:
-            return False, "Story tipui reikalinga lygiai 1 nuotrauka"
-    elif post_type == "carousel":
-        if count < MIN_UPLOADS["carousel"]:
-            return False, f"Carousel tipui reikia mažiausiai {MIN_UPLOADS['carousel']} nuotraukų"
-        if count > MAX_UPLOADS["carousel"]:
-            return False, f"Carousel tipui galima daugiausiai {MAX_UPLOADS['carousel']} nuotraukų"
-    else:
-        return False, f"Nežinomas posto tipas: {post_type}"
-
-    return True, ""
-
-
-def determine_post_type(count: int) -> str:
-    """
-    Automatiškai nustato posto tipą pagal nuotraukų skaičių.
-    1 nuotrauka → story
-    2-10 nuotraukų → carousel
-    """
-    if count == 1:
-        return "story"
-    return "carousel"
-
-
 def create_post_with_uploads(
     db: Session,
     upload_ids: list[int],
-    post_type: str
+    post_type: str,
+    topic: str | None = None,
+    goal: str | None = None,
+    cta_type: str | None = None,
+    additional_notes: str | None = None,
 ) -> Post:
     """
-    Sukuria Post ir susieja su Upload per PostUpload.
-    Automatiškai priskiria slide_type kiekvienai nuotraukai.
+    Sukuria Post ir susieja su Upload per PostUpload lentelę.
+
+    Tikrina:
+    - post_type teisingumą
+    - upload_ids dublikatus
+    - upload_ids egzistavimą DB
+    - nuotraukų kiekio atitikimą tipo taisyklėms
+
+    Grąžina sukurtą Post objektą.
     """
     count = len(upload_ids)
 
-    # Validacija
+    # Tikrink dublikatus
+    if len(upload_ids) != len(set(upload_ids)):
+        raise ValueError("upload_ids sąraše yra pasikartojančių ID")
+
+    # Validuok kiekį pagal tipo taisykles
     valid, error = validate_upload_count(post_type, count)
     if not valid:
         raise ValueError(error)
 
-    # Sukurk postą
-    post = Post(
-        post_type=post_type,
-        status="pending"
-    )
-    db.add(post)
-    db.flush()  # gauti post.id prieš PostUpload kūrimą
+    # Tikrink ar visi upload_ids egzistuoja DB
+    from database.models import Upload
+    for uid in upload_ids:
+        exists = db.query(Upload).filter_by(id=uid).first()
+        if not exists:
+            raise ValueError(f"Upload su ID={uid} nerastas duomenų bazėje")
 
-    # Priskyrk slide tipus
-    slide_types = assign_slide_types(count)
-
-    # Sukurk PostUpload ryšius
-    for position, (upload_id, slide_type) in enumerate(
-        zip(upload_ids, slide_types), start=1
-    ):
-        post_upload = PostUpload(
-            post_id=post.id,
-            upload_id=upload_id,
-            position=position,
-            slide_type=slide_type
+    try:
+        # Sukurk postą su vartotojo intencija
+        post = Post(
+            post_type=post_type,
+            status="pending",
+            topic=topic,
+            goal=goal,
+            cta_type=cta_type,
+            additional_notes=additional_notes,
         )
-        db.add(post_upload)
+        db.add(post)
+        db.flush()  # gauti post.id prieš PostUpload kūrimą
 
-    db.commit()
-    return post
+        # Priskyrk slide tipus ir sukurk ryšius
+        slide_types = assign_slide_types(count)
+
+        for position, (upload_id, slide_type) in enumerate(
+            zip(upload_ids, slide_types), start=1
+        ):
+            post_upload = PostUpload(
+                post_id=post.id,
+                upload_id=upload_id,
+                position=position,
+                slide_type=slide_type,
+                # slide_text užpildomas vėliau — teksto generavimo etape
+            )
+            db.add(post_upload)
+
+        db.commit()
+        return post
+
+    except Exception as e:
+        db.rollback()
+        raise e

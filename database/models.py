@@ -18,7 +18,6 @@ class Upload(Base):
     height: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
 
-    # Ryšys su post_uploads
     post_links: Mapped[list["PostUpload"]] = relationship(back_populates="upload")
 
     def __repr__(self):
@@ -31,14 +30,30 @@ class Post(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     post_type: Mapped[str] = mapped_column(String(20), nullable=False)   # story / carousel
-    status: Mapped[str] = mapped_column(String(20), default="pending")   # pending / processing / completed / failed
 
-    # Modelio spėjimas
+    # Būsena
+    # pending → processing → completed → failed
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+
+    # ── Vartotojo įvestis (intencija) ──────────────────────────────
+    topic: Mapped[str | None] = mapped_column(Text)
+    # Apie ką postas. Pvz.: "nauji vasaros akiniai", "pavasario kolekcija"
+
+    goal: Mapped[str | None] = mapped_column(String(50))
+    # Posto tikslas: sell / inform / engage / brand_awareness / traffic
+
+    cta_type: Mapped[str | None] = mapped_column(String(50))
+    # CTA tipas: visit_shop / visit_profile / send_message / save_post / comment / click_link
+
+    additional_notes: Mapped[str | None] = mapped_column(Text)
+    # Papildomos pastabos. Pvz.: "paminėk, kad ribotas kiekis"
+
+    # ── Modelio spėjimas ───────────────────────────────────────────
     predicted_category: Mapped[str | None] = mapped_column(String(50))  # food, portrait...
     confidence: Mapped[float | None] = mapped_column(Float)
     model_used: Mapped[str | None] = mapped_column(String(20))           # cnn / vit / knn
 
-    # Sugeneruotas tekstas
+    # ── Sugeneruotas tekstas ───────────────────────────────────────
     hook: Mapped[str | None] = mapped_column(Text)
     story: Mapped[str | None] = mapped_column(Text)
     cta: Mapped[str | None] = mapped_column(Text)
@@ -48,7 +63,6 @@ class Post(Base):
     output_path: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
 
-    # Ryšys su post_uploads
     upload_links: Mapped[list["PostUpload"]] = relationship(back_populates="post")
 
     def __repr__(self):
@@ -62,17 +76,16 @@ class PostUpload(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), nullable=False)
     upload_id: Mapped[int] = mapped_column(ForeignKey("uploads.id"), nullable=False)
-    position: Mapped[int] = mapped_column(Integer, default=1)            # eiliškumas carousel viduje
+    position: Mapped[int] = mapped_column(Integer, default=1)
 
     # Skaidrės rolė:
-    # single = 1 nuotrauka (story arba viena carousel)
-    # hook   = pirma carousel skaidrė
-    # story  = vidurinės carousel skaidrės
-    # cta    = paskutinė carousel skaidrė
+    # single → story tipo postas su viena nuotrauka (atlieka visas roles)
+    # hook   → pirma carousel skaidrė (kabina dėmesį)
+    # story  → vidurinės carousel skaidrės (platesnis pasakojimas)
+    # cta    → paskutinė carousel skaidrė (kvietimas veikti)
     slide_type: Mapped[str | None] = mapped_column(String(20))
-    slide_text: Mapped[str | None] = mapped_column(Text)                 # tekstas ant tos skaidrės
+    slide_text: Mapped[str | None] = mapped_column(Text)  # užpildomas teksto generavimo etape
 
-    # Ryšiai
     post: Mapped["Post"] = relationship(back_populates="upload_links")
     upload: Mapped["Upload"] = relationship(back_populates="post_links")
 
@@ -87,7 +100,7 @@ class TrainingImage(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     filepath: Mapped[str] = mapped_column(String(500), nullable=False)
-    category: Mapped[str] = mapped_column(String(50), nullable=False)    # food, portrait...
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
     split: Mapped[str] = mapped_column(String(10), nullable=False)       # train / val / test
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
@@ -127,8 +140,8 @@ class TrainingSession(Base):
     f1_score: Mapped[float | None] = mapped_column(Float)
 
     # Failai
-    model_path: Mapped[str | None] = mapped_column(String(500))          # išsaugoto modelio kelias
-    report_path: Mapped[str | None] = mapped_column(String(500))         # classification report
+    model_path: Mapped[str | None] = mapped_column(String(500))
+    report_path: Mapped[str | None] = mapped_column(String(500))
 
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
