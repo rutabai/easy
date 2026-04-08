@@ -1,4 +1,4 @@
-from database.models import Post, PostUpload
+from database.models import Post, PostUpload, Upload
 from sqlalchemy.orm import Session
 
 # Limitas pagal posto tipą
@@ -6,7 +6,7 @@ MAX_UPLOADS = {"story": 1, "carousel": 10}
 MIN_UPLOADS = {"story": 1, "carousel": 2}
 
 # Galimos reikšmės
-VALID_GOALS    = ["sell", "inform", "engage", "brand_awareness", "traffic"]
+VALID_GOALS     = ["sell", "inform", "engage", "brand_awareness", "traffic"]
 VALID_CTA_TYPES = ["visit_shop", "visit_profile", "send_message", "save_post", "comment", "click_link"]
 
 # Slide tipo aprašymai:
@@ -24,6 +24,15 @@ def validate_upload_count(post_type: str, count: int) -> tuple[bool, str]:
         return False, f"{post_type.capitalize()} tipui reikia mažiausiai {MIN_UPLOADS[post_type]} nuotraukų"
     if count > MAX_UPLOADS[post_type]:
         return False, f"{post_type.capitalize()} tipui galima daugiausiai {MAX_UPLOADS[post_type]} nuotraukų"
+    return True, ""
+
+
+def validate_intent(goal: str | None, cta_type: str | None) -> tuple[bool, str]:
+    """Tikrina ar goal ir cta_type yra iš leistinų reikšmių."""
+    if goal is not None and goal not in VALID_GOALS:
+        return False, f"Nežinomas tikslas: '{goal}'. Galimi: {VALID_GOALS}"
+    if cta_type is not None and cta_type not in VALID_CTA_TYPES:
+        return False, f"Nežinomas CTA tipas: '{cta_type}'. Galimi: {VALID_CTA_TYPES}"
     return True, ""
 
 
@@ -63,8 +72,9 @@ def create_post_with_uploads(
     Tikrina:
     - post_type teisingumą
     - upload_ids dublikatus
-    - upload_ids egzistavimą DB
+    - upload_ids egzistavimą DB (vienu užklausimu)
     - nuotraukų kiekio atitikimą tipo taisyklėms
+    - goal ir cta_type leistinumą
 
     Grąžina sukurtą Post objektą.
     """
@@ -79,12 +89,18 @@ def create_post_with_uploads(
     if not valid:
         raise ValueError(error)
 
-    # Tikrink ar visi upload_ids egzistuoja DB
-    from database.models import Upload
-    for uid in upload_ids:
-        exists = db.query(Upload).filter_by(id=uid).first()
-        if not exists:
-            raise ValueError(f"Upload su ID={uid} nerastas duomenų bazėje")
+    # Validuok goal ir cta_type
+    valid, error = validate_intent(goal, cta_type)
+    if not valid:
+        raise ValueError(error)
+
+    # Tikrink ar visi upload_ids egzistuoja DB — vienu užklausimu
+    found_ids = {
+        row.id for row in db.query(Upload.id).filter(Upload.id.in_(upload_ids)).all()
+    }
+    missing = set(upload_ids) - found_ids
+    if missing:
+        raise ValueError(f"Šie Upload ID nerasti DB: {missing}")
 
     try:
         # Sukurk postą su vartotojo intencija

@@ -1,4 +1,5 @@
 import os
+import random
 from pathlib import Path
 from PIL import Image as PILImage
 from sqlalchemy.orm import Session
@@ -10,16 +11,38 @@ CATEGORIES = ["food", "portrait", "landscape", "product", "lifestyle"]
 # Duomenų padalijimas
 SPLIT_RATIOS = {"train": 0.70, "val": 0.15, "test": 0.15}
 
+# Atkartojamas atsitiktinumas
+RANDOM_SEED = 42
+
 
 def get_image_info(filepath: str) -> dict:
-    """Gauna nuotraukos metaduomenis DB įrašymui"""
+    """
+    Gauna nuotraukos metaduomenis DB įrašymui.
+    Klaidos atveju atsispausdina pranešimą ir grąžina None reikšmes.
+    """
     try:
         with PILImage.open(filepath) as img:
             width, height = img.size
         file_size = os.path.getsize(filepath)
         return {"width": width, "height": height, "file_size": file_size}
-    except Exception:
+    except Exception as e:
+        print(f"⚠️  Nepavyko nuskaityti {filepath}: {e}")
         return {"width": None, "height": None, "file_size": None}
+
+
+def collect_image_files(category_path: Path) -> list[Path]:
+    """
+    Surenka visus nuotraukų failus iš aplanko.
+    Sumaišo failus prieš grąžinant — kad split būtų atsitiktinis.
+    """
+    image_files = []
+    for ext in ["*.jpg", "*.jpeg", "*.png", "*.webp"]:
+        image_files.extend(category_path.glob(ext))
+
+    # Sumaišom prieš splitą — kad nepriklausytų nuo failų eiliškumo diske
+    random.seed(RANDOM_SEED)
+    random.shuffle(image_files)
+    return image_files
 
 
 def assign_split(index: int, total: int) -> str:
@@ -56,11 +79,8 @@ def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
             print(f"⚠️  Aplankas nerastas: {category_path}")
             continue
 
-        # Surink visus nuotraukų failus
-        image_files = []
-        for ext in ["*.jpg", "*.jpeg", "*.png", "*.webp"]:
-            image_files.extend(sorted(category_path.glob(ext)))
-
+        # Surink ir sumaišyk failus
+        image_files = collect_image_files(category_path)
         total = len(image_files)
         print(f"📁 {category}: {total} nuotraukų")
 
@@ -97,7 +117,10 @@ def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
 
 def add_single_image(filepath: str, category: str, split: str,
                      db: Session, source: str = "manual") -> TrainingImage:
-    """Prideda vieną nuotrauką į treniravimo duomenis per Flask UI"""
+    """
+    Prideda vieną nuotrauką į treniravimo duomenis per Flask UI.
+    Tikrina ar toks failas jau egzistuoja DB.
+    """
     if category not in CATEGORIES:
         raise ValueError(f"Neteisinga kategorija: {category}. Galimos: {CATEGORIES}")
 
@@ -106,6 +129,11 @@ def add_single_image(filepath: str, category: str, split: str,
 
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Failas nerastas: {filepath}")
+
+    # Tikrink ar jau egzistuoja DB
+    existing = db.query(TrainingImage).filter_by(filepath=filepath).first()
+    if existing:
+        raise ValueError(f"Šis failas jau yra DB: {filepath}")
 
     info = get_image_info(filepath)
 

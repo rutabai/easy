@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Text, DateTime, Float, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Text, DateTime, Float, Integer, String, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.sql import func
 from database.db import Base
 
@@ -11,9 +11,9 @@ class Upload(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     original_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    filepath: Mapped[str] = mapped_column(String(500), nullable=False)
-    mime_type: Mapped[str | None] = mapped_column(String(50))        # image/jpeg, image/png...
-    file_size: Mapped[int | None] = mapped_column(Integer)           # baitais
+    filepath: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
+    mime_type: Mapped[str | None] = mapped_column(String(50))
+    file_size: Mapped[int | None] = mapped_column(Integer)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
@@ -29,37 +29,34 @@ class Post(Base):
     __tablename__ = "posts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    post_type: Mapped[str] = mapped_column(String(20), nullable=False)   # story / carousel
 
-    # Būsena
-    # pending → processing → completed → failed
+    # story / carousel
+    post_type: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    # pending / processing / completed / failed
     status: Mapped[str] = mapped_column(String(20), default="pending")
 
-    # ── Vartotojo įvestis (intencija) ──────────────────────────────
+    # ── Vartotojo intencija ────────────────────────────────────────
     topic: Mapped[str | None] = mapped_column(Text)
-    # Apie ką postas. Pvz.: "nauji vasaros akiniai", "pavasario kolekcija"
-
+    # sell / inform / engage / brand_awareness / traffic
     goal: Mapped[str | None] = mapped_column(String(50))
-    # Posto tikslas: sell / inform / engage / brand_awareness / traffic
-
+    # visit_shop / visit_profile / send_message / save_post / comment / click_link
     cta_type: Mapped[str | None] = mapped_column(String(50))
-    # CTA tipas: visit_shop / visit_profile / send_message / save_post / comment / click_link
-
     additional_notes: Mapped[str | None] = mapped_column(Text)
-    # Papildomos pastabos. Pvz.: "paminėk, kad ribotas kiekis"
 
     # ── Modelio spėjimas ───────────────────────────────────────────
-    predicted_category: Mapped[str | None] = mapped_column(String(50))  # food, portrait...
+    # food / portrait / landscape / product / lifestyle
+    predicted_category: Mapped[str | None] = mapped_column(String(50))
     confidence: Mapped[float | None] = mapped_column(Float)
-    model_used: Mapped[str | None] = mapped_column(String(20))           # cnn / vit / knn
+    # cnn / vit / knn
+    model_used: Mapped[str | None] = mapped_column(String(20))
 
     # ── Sugeneruotas tekstas ───────────────────────────────────────
     hook: Mapped[str | None] = mapped_column(Text)
     story: Mapped[str | None] = mapped_column(Text)
     cta: Mapped[str | None] = mapped_column(Text)
-    caption: Mapped[str | None] = mapped_column(Text)                    # visas tekstas kartu
+    caption: Mapped[str | None] = mapped_column(Text)
 
-    # Galutinis rezultatas
     output_path: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
 
@@ -70,21 +67,25 @@ class Post(Base):
 
 
 class PostUpload(Base):
-    """Tarpinė lentelė — susieja Post ir Upload (su eiliškumu ir role)"""
+    """Tarpinė lentelė — susieja Post ir Upload"""
     __tablename__ = "post_uploads"
+
+    # Unikalumo apribojimai:
+    # - tas pats post_id + position negali kartotis (pozicija unikali viename poste)
+    # - tas pats post_id + upload_id negali kartotis (ta pati nuotrauka du kartus)
+    __table_args__ = (
+        UniqueConstraint("post_id", "position", name="uq_post_position"),
+        UniqueConstraint("post_id", "upload_id", name="uq_post_upload"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), nullable=False)
     upload_id: Mapped[int] = mapped_column(ForeignKey("uploads.id"), nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=1)
 
-    # Skaidrės rolė:
-    # single → story tipo postas su viena nuotrauka (atlieka visas roles)
-    # hook   → pirma carousel skaidrė (kabina dėmesį)
-    # story  → vidurinės carousel skaidrės (platesnis pasakojimas)
-    # cta    → paskutinė carousel skaidrė (kvietimas veikti)
+    # single / hook / story / cta
     slide_type: Mapped[str | None] = mapped_column(String(20))
-    slide_text: Mapped[str | None] = mapped_column(Text)  # užpildomas teksto generavimo etape
+    slide_text: Mapped[str | None] = mapped_column(Text)
 
     post: Mapped["Post"] = relationship(back_populates="upload_links")
     upload: Mapped["Upload"] = relationship(back_populates="post_links")
@@ -99,13 +100,16 @@ class TrainingImage(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    filepath: Mapped[str] = mapped_column(String(500), nullable=False)
+    # unique=True — tas pats failas negali būti įkeltas du kartus
+    filepath: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
+    # food / portrait / landscape / product / lifestyle
     category: Mapped[str] = mapped_column(String(50), nullable=False)
-    split: Mapped[str] = mapped_column(String(10), nullable=False)       # train / val / test
+    # train / val / test
+    split: Mapped[str] = mapped_column(String(10), nullable=False)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     file_size: Mapped[int | None] = mapped_column(Integer)
-    source: Mapped[str | None] = mapped_column(String(100))              # kaggle, manual...
+    source: Mapped[str | None] = mapped_column(String(100))
     is_augmented: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
 
@@ -118,7 +122,8 @@ class TrainingSession(Base):
     __tablename__ = "training_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    model_type: Mapped[str] = mapped_column(String(20), nullable=False)  # cnn / vit / knn
+    # cnn / vit / knn
+    model_type: Mapped[str] = mapped_column(String(20), nullable=False)
 
     # Hyperparametrai
     learning_rate: Mapped[float | None] = mapped_column(Float)
@@ -134,15 +139,13 @@ class TrainingSession(Base):
     train_loss: Mapped[float | None] = mapped_column(Float)
     val_loss: Mapped[float | None] = mapped_column(Float)
 
-    # Papildomos metrikos
+    # Metrikos
     precision: Mapped[float | None] = mapped_column(Float)
     recall: Mapped[float | None] = mapped_column(Float)
     f1_score: Mapped[float | None] = mapped_column(Float)
 
-    # Failai
     model_path: Mapped[str | None] = mapped_column(String(500))
     report_path: Mapped[str | None] = mapped_column(String(500))
-
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
 
