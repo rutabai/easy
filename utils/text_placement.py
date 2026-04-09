@@ -1,5 +1,6 @@
 import numpy as np
 from PIL import Image as PILImage, ImageDraw, ImageFont
+from utils.constants import AVAILABLE_FILTERS
 import os
 
 
@@ -202,15 +203,25 @@ def process_image_with_text(
     zone: str | None = None,
     offset_x: int = 0,
     offset_y: int = 0,
+    filter_name: str = "original",
 ) -> str:
     """
-    Įkelia nuotrauką, uždeda tekstą ir išsaugo.
+    Įkelia nuotrauką, pritaiko filtrą, uždeda tekstą ir išsaugo.
+    Eiliškumas: image → filter → text (tekstas lieka aiškus ir ryškus).
     Grąžina output_path.
     """
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Nuotrauka nerasta: {image_path}")
 
+    from utils.image_filters import apply_filter
+
     image = PILImage.open(image_path).convert("RGB")
+
+    # 1. Pritaiko filtrą PRIEŠ tekstą — tekstas lieka aiškus
+    if filter_name != "original":
+        image = apply_filter(image, filter_name)
+
+    # 2. Uždeda tekstą ant filtruotos nuotraukos
     result = add_text_overlay(
         image=image,
         hook=hook,

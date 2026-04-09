@@ -41,5 +41,8 @@ MIN_UPLOADS = {"story": 1, "carousel": 2}
 # Duomenų padalijimas
 SPLIT_RATIOS = {"train": 0.70, "val": 0.15, "test": 0.15}
 
+# Filtrai
+AVAILABLE_FILTERS = ["original", "warm", "cool", "bw", "vivid", "soft", "vintage"]
+
 # Modelių tipai
 MODEL_TYPES = ["cnn", "vit", "knn"]
