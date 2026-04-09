@@ -77,17 +77,24 @@ class CNNDataset(torch.utils.data.Dataset):
         record = self.records[idx]
 
         from utils.image_preprocessing import load_image
+        from torchvision import transforms
         img = load_image(record.filepath)
 
         if self.transform:
             img = self.transform(img)
+        else:
+            # Jei transform nenurodytas — vis tiek konvertuojam į tensor
+            img = transforms.ToTensor()(img)
 
         label = self.category_to_idx[record.category]
         return img, label
 
 
 def build_dataloaders(db, batch_size: int = 32) -> dict:
-    """Sukuria train / val / test DataLoader objektus iš DB duomenų."""
+    """
+    Sukuria train / val / test DataLoader objektus iš DB duomenų.
+    Tikrina ar splitai nėra tušti prieš kuriant loaderius.
+    """
     from database.models import TrainingImage
     from utils.image_preprocessing import get_train_transforms, get_val_transforms
 
@@ -96,6 +103,20 @@ def build_dataloaders(db, batch_size: int = 32) -> dict:
         "val":   get_val_transforms(),
         "test":  get_val_transforms(),
     }
+
+    # Patikrink ar train ir val nėra tušti — kritinė klaida
+    for split in ["train", "val"]:
+        count = db.query(TrainingImage).filter_by(split=split).count()
+        if count == 0:
+            raise ValueError(
+                f"❌ '{split}' splitas tuščias! "
+                f"Paleisk load_data_to_db() prieš treniravimą."
+            )
+
+    # Įspėjimas jei test tuščias — nekritinė klaida
+    test_count = db.query(TrainingImage).filter_by(split="test").count()
+    if test_count == 0:
+        print("⚠️  'test' splitas tuščias — testavimas nebus galimas.")
 
     loaders = {}
     for split, transform in transforms_map.items():
