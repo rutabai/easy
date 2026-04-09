@@ -57,6 +57,7 @@ class Post(Base):
     cta: Mapped[str | None] = mapped_column(Text)
     caption: Mapped[str | None] = mapped_column(Text)
 
+    filter_name: Mapped[str | None] = mapped_column(String(20), default="original")
     output_path: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
 
