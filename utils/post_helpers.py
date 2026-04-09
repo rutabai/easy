@@ -77,6 +77,12 @@ def create_post_with_uploads(
     """
     count = len(upload_ids)
 
+    # Normalizuok tuščias eilutes į None (Flask formos gali siųsti tuščius stringus)
+    goal           = goal.strip() or None if goal else None
+    cta_type       = cta_type.strip() or None if cta_type else None
+    topic          = topic.strip() or None if topic else None
+    additional_notes = additional_notes.strip() or None if additional_notes else None
+
     # Tikrink dublikatus
     if len(upload_ids) != len(set(upload_ids)):
         raise ValueError("upload_ids sąraše yra pasikartojančių ID")

@@ -1,62 +1,40 @@
-import os
-import json
 import anthropic
+import os
 from dotenv import load_dotenv
-
-from utils.constants import CATEGORIES, VALID_GOALS, VALID_CTA_TYPES, POST_TYPES
+from utils.constants import CATEGORIES, VALID_GOALS, VALID_CTA_TYPES
 
 load_dotenv()
 
-API_KEY = os.getenv("ANTHROPIC_API_KEY")
-if not API_KEY:
-    raise ValueError("❌ Nerastas ANTHROPIC_API_KEY aplinkos kintamasis")
-
-client = anthropic.Anthropic(api_key=API_KEY)
-
-# Rekomenduojama naudoti konkretų snapshot modelį arba alias.
-# Pvz.:
-# MODEL = "claude-opus-4-1-20250805"
-# arba
-MODEL = "claude-opus-4-1"
-
+# Modelis
+MODEL = "claude-opus-4-6"
 MAX_TOKENS = 500
 
+# CTA tipo vertimas į lietuvišką tekstą
 CTA_TRANSLATIONS = {
-    "visit_shop": "Apsilankyti e-shop",
-    "visit_profile": "Apsilankyti profilyje",
-    "send_message": "Parašyti žinutę",
-    "save_post": "Išsaugoti įrašą",
-    "comment": "Komentuoti",
-    "click_link": "Spausti nuorodą",
+    "visit_shop":     "Apsilankyti e-shop",
+    "visit_profile":  "Apsilankyti profilyje",
+    "send_message":   "Parašyti žinutę",
+    "save_post":      "Išsaugoti įrašą",
+    "comment":        "Komentuoti",
+    "click_link":     "Spausti nuorodą",
 }
 
+# Tikslo vertimas
 GOAL_TRANSLATIONS = {
-    "sell": "parduoti produktą ar paslaugą",
-    "inform": "informuoti ir šviesti auditoriją",
-    "engage": "padidinti įsitraukimą ir reakcijas",
+    "sell":            "parduoti produktą ar paslaugą",
+    "inform":          "informuoti ir šviesti auditoriją",
+    "engage":          "padidinti įsitraukimą ir reakcijas",
     "brand_awareness": "didinti prekės ženklo žinomumą",
-    "traffic": "nukreipti srautą į svetainę ar profilį",
+    "traffic":         "nukreipti srautą į svetainę ar profilį",
 }
 
 
-def _clean_json_response(raw_text: str) -> dict:
-    """Išvalo modelio atsakymą ir paverčia jį į dict."""
-    raw_text = raw_text.strip()
-
-    if "```" in raw_text:
-        parts = raw_text.split("```")
-        if len(parts) > 1:
-            raw_text = parts[1]
-        if raw_text.startswith("json"):
-            raw_text = raw_text[4:]
-
-    result = json.loads(raw_text.strip())
-
-    for field in ["hook", "story", "cta", "caption"]:
-        if field not in result:
-            result[field] = ""
-
-    return result
+def _get_client() -> anthropic.Anthropic:
+    """Grąžina Anthropic klientą. Sukuriamas tik kai reikia."""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise ValueError("❌ ANTHROPIC_API_KEY nerasta .env faile!")
+    return anthropic.Anthropic(api_key=api_key)
 
 
 def _build_prompt(
@@ -71,7 +49,7 @@ def _build_prompt(
     """Sukuria promptą Anthropic API."""
 
     goal_text = GOAL_TRANSLATIONS.get(goal, "sukurti įtraukiantį turinį") if goal else "sukurti įtraukiantį turinį"
-    cta_text = CTA_TRANSLATIONS.get(cta_type, "Sužinoti daugiau") if cta_type else "Sužinoti daugiau"
+    cta_text  = CTA_TRANSLATIONS.get(cta_type, "Sužinoti daugiau") if cta_type else "Sužinoti daugiau"
     topic_text = topic if topic else f"{category} turinys"
     notes_text = f"\nPapildoma informacija: {additional_notes}" if additional_notes else ""
 
@@ -121,21 +99,17 @@ def generate_caption(
     """
     Generuoja Instagram tekstą per Anthropic API.
 
-    Grąžina:
+    Grąžina žodyną su:
     - hook
     - story
     - cta
     - caption
     """
+    # Validacija
     if category not in CATEGORIES:
         raise ValueError(f"Neteisinga kategorija: {category}")
-
-    if post_type not in POST_TYPES:
-        raise ValueError(f"Neteisingas posto tipas: {post_type}")
-
     if goal and goal not in VALID_GOALS:
-        raise ValueError(f"Neteisingas tikslas: {goal}")
-
+        raise ValueError(f"Neteisinas tikslas: {goal}")
     if cta_type and cta_type not in VALID_CTA_TYPES:
         raise ValueError(f"Neteisingas CTA tipas: {cta_type}")
 
@@ -150,22 +124,39 @@ def generate_caption(
     )
 
     try:
-        response = client.messages.create(
+        response = _get_client().messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": prompt}]
         )
 
-        raw_text = response.content[0].text
-        return _clean_json_response(raw_text)
+        raw_text = response.content[0].text.strip()
+
+        # Išgauk JSON iš atsakymo
+        import json
+        # Pašalink galimus markdown backticks
+        if "```" in raw_text:
+            raw_text = raw_text.split("```")[1]
+            if raw_text.startswith("json"):
+                raw_text = raw_text[4:]
+
+        result = json.loads(raw_text.strip())
+
+        # Patikrink ar visi laukai yra
+        for field in ["hook", "story", "cta", "caption"]:
+            if field not in result:
+                result[field] = ""
+
+        return result
 
     except Exception as e:
-        print(f"⚠️ Klaida generuojant tekstą: {e}")
+        print(f"⚠️  Klaida generuojant tekstą: {e}")
+        # Grąžink default tekstą klaidos atveju
         return {
             "hook": f"Atrask naujausią {category} turinį!",
             "story": topic or "Kažkas įdomaus laukia tavęs.",
             "cta": CTA_TRANSLATIONS.get(cta_type, "Sužinoti daugiau"),
-            "caption": f"#{category} #instagram #content",
+            "caption": f"#{category} #instagram #content"
         }
 
 
@@ -177,14 +168,8 @@ def refine_caption(
 ) -> dict:
     """
     Patobulina vartotojo redaguotą tekstą per Anthropic API.
-    Išlaiko vartotojo mintį, bet pagerina stilių.
+    Išlaiko vartotojo mintį bet pagerina stilių.
     """
-    if category not in CATEGORIES:
-        raise ValueError(f"Neteisinga kategorija: {category}")
-
-    if post_type not in POST_TYPES:
-        raise ValueError(f"Neteisingas posto tipas: {post_type}")
-
     prompt = f"""Vartotojas redagavo Instagram {post_type} tekstą. Patobulink jo versiją išlaikant pagrindinę mintį.
 
 Originali AI versija:
@@ -206,24 +191,30 @@ Grąžink JSON (tik JSON, be papildomo teksto):
   "hook": "patobulinta hook dalis",
   "story": "patobulinta story dalis",
   "cta": "patobulinta cta dalis",
-  "caption": "visas patobulintas tekstas"
+  "caption": "visas patobulinas tekstas"
 }}"""
 
     try:
-        response = client.messages.create(
+        response = _get_client().messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": prompt}]
         )
 
-        raw_text = response.content[0].text
-        return _clean_json_response(raw_text)
+        import json
+        raw_text = response.content[0].text.strip()
+        if "```" in raw_text:
+            raw_text = raw_text.split("```")[1]
+            if raw_text.startswith("json"):
+                raw_text = raw_text[4:]
+
+        return json.loads(raw_text.strip())
 
     except Exception as e:
-        print(f"⚠️ Klaida tobulinant tekstą: {e}")
+        print(f"⚠️  Klaida tobulinant tekstą: {e}")
         return {
             "hook": user_edit,
             "story": user_edit,
             "cta": "",
-            "caption": user_edit,
+            "caption": user_edit
         }

@@ -38,9 +38,9 @@ def collect_image_files(category_path: Path) -> list[Path]:
     for ext in ["*.jpg", "*.jpeg", "*.png", "*.webp"]:
         image_files.extend(category_path.glob(ext))
 
-    # Sumaišom prieš splitą — kad nepriklausytų nuo failų eiliškumo diske
-    random.seed(RANDOM_SEED)
-    random.shuffle(image_files)
+    # Sumaišom prieš splitą — vietinis generatorius kad nedarytų įtakos global state
+    rng = random.Random(RANDOM_SEED)
+    rng.shuffle(image_files)
     return image_files
 
 

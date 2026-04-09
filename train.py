@@ -89,8 +89,10 @@ def train_cnn(
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             save_model(model, save_path)
 
-    # ── Test metrikos ──────────────────────────────────────────
-    test_metrics = _compute_test_metrics(model, loaders["test"])
+    # ── Test metrikos — naudok geriausią checkpointą ──────────
+    from models.cnn_model import load_model as _load_cnn
+    best_model = _load_cnn(save_path, dropout=dropout).to(DEVICE)
+    test_metrics = _compute_test_metrics(best_model, loaders["test"])
 
     # ── Įrašyk į DB ───────────────────────────────────────────
     session = TrainingSession(
@@ -182,8 +184,10 @@ def train_vit(
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             save_vit_model(model, save_path)
 
-    # ── Test metrikos ──────────────────────────────────────────
-    test_metrics = _compute_test_metrics(model, loaders["test"])
+    # ── Test metrikos — naudok geriausią checkpointą ──────────
+    from models.vit_model import load_vit_model as _load_vit
+    best_model = _load_vit(save_path, freeze_backbone=freeze_backbone).to(DEVICE)
+    test_metrics = _compute_test_metrics(best_model, loaders["test"])
 
     # ── Įrašyk į DB ───────────────────────────────────────────
     session = TrainingSession(
@@ -270,7 +274,7 @@ def train_knn(
         test_accuracy=metrics["accuracy"],
         precision=metrics["precision"],
         recall=metrics["recall"],
-        f1_score=metrics["f1_score"],
+        f1_score=metrics.get("f1_score", metrics.get("f1", 0.0)),
         model_path=save_path,
         notes=f"k={n_neighbors}, metric={metric}",
     )

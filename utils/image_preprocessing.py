@@ -78,6 +78,6 @@ def preprocess_for_inference(filepath: str) -> torch.Tensor:
 
 def denormalize(tensor: torch.Tensor) -> torch.Tensor:
     """Atgalinė normalizacija — vizualizacijai ir debuginimui."""
-    mean = torch.tensor(IMAGENET_MEAN).view(3, 1, 1)
-    std  = torch.tensor(IMAGENET_STD).view(3, 1, 1)
+    mean = torch.tensor(IMAGENET_MEAN, device=tensor.device).view(3, 1, 1)
+    std  = torch.tensor(IMAGENET_STD, device=tensor.device).view(3, 1, 1)
     return torch.clamp(tensor * std + mean, 0, 1)

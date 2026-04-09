@@ -14,7 +14,7 @@ class Base(DeclarativeBase):
     pass
 
 def get_db():
-    """Grąžina DB sesiją. Naudoti su 'with' arba Flask route'uose."""
+    """Grąžina DB sesiją kaip generatorių. Naudoti su next() arba Flask route'uose per Depends()."""
     db = SessionLocal()
     try:
         yield db
@@ -27,4 +27,3 @@ def init_db():
     from database.models import Upload, Post, PostUpload, TrainingImage, TrainingSession
     Base.metadata.create_all(bind=engine)
     print("✅ Duomenų bazė sukurta!")
-    
