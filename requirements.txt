@@ -1,13 +1,15 @@
 flask
+python-dotenv
 sqlalchemy
 anthropic
 torch
 torchvision
 transformers
 pillow
-opencv-python
+opencv-python-headless
 scikit-learn
 numpy
 pandas
 matplotlib
-python-dotenv
+joblib
+gunicorn
