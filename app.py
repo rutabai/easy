@@ -15,7 +15,8 @@ def create_app() -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
     app.config["UPLOAD_FOLDER"]      = os.path.join("static", "uploads")
     app.config["OUTPUT_FOLDER"]      = os.path.join("static", "outputs")
-    app.config["MODEL_FOLDER"]       = "saved_models"  # visi keliai config'e
+    app.config["MODEL_FOLDER"]       = "saved_models"
+    app.config["DATA_FOLDER"]        = "data"
 
     # ── Sukurk reikalingus aplankus ────────────────────────────
     for folder in [
@@ -34,7 +35,6 @@ def create_app() -> Flask:
 
     @app.teardown_request
     def close_db(error=None):
-        # error parametras reikalingas Flask teardown_request hook'ui
         db = g.pop("db", None)
         if db is not None:
             db.close()

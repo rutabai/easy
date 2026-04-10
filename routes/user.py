@@ -1,17 +1,19 @@
 import os
 import uuid
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify, send_file, g, current_app
+from flask import (
+    Blueprint, render_template, request,
+    redirect, url_for, jsonify, send_file, g, current_app
+)
 from database.models import Upload, Post, PostUpload
 from utils.post_helpers import create_post_with_uploads, validate_upload_count
 from utils.caption_generator import generate_caption, refine_caption
 from utils.text_placement import process_image_with_text
-from utils.constants import VALID_GOALS, VALID_CTA_TYPES, AVAILABLE_FILTERS
+from utils.constants import VALID_GOALS, VALID_CTA_TYPES, AVAILABLE_FILTERS, IDX_TO_CATEGORY
 
 user_bp = Blueprint("user", __name__)
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 
-# MIME tipų žemėlapis
 MIME_TYPES = {
     "jpg":  "image/jpeg",
     "jpeg": "image/jpeg",
@@ -27,9 +29,9 @@ def _allowed_file(filename: str) -> bool:
 def _save_upload(file, upload_folder: str) -> tuple[str, str, str]:
     """Išsaugo įkeltą failą. Grąžina (original_name, filename, filepath)."""
     original_name = file.filename
-    ext = original_name.rsplit(".", 1)[1].lower()
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    filepath = os.path.join(upload_folder, filename)
+    ext           = original_name.rsplit(".", 1)[1].lower()
+    filename      = f"{uuid.uuid4().hex}.{ext}"
+    filepath      = os.path.join(upload_folder, filename)
     file.save(filepath)
     return original_name, filename, filepath
 
@@ -43,16 +45,18 @@ def _build_caption_from_parts(hook: str, story: str, cta: str) -> str:
 # ── Pagrindinis puslapis ───────────────────────────────────────
 @user_bp.route("/")
 def index():
-    return render_template("index.html",
-                           goals=VALID_GOALS,
-                           cta_types=VALID_CTA_TYPES,
-                           filters=AVAILABLE_FILTERS)
+    return render_template(
+        "index.html",
+        goals     = VALID_GOALS,
+        cta_types = VALID_CTA_TYPES,
+        filters   = AVAILABLE_FILTERS,
+    )
 
 
 # ── Nuotraukų įkėlimas ────────────────────────────────────────
 @user_bp.route("/upload", methods=["POST"])
 def upload():
-    files = request.files.getlist("images")
+    files       = request.files.getlist("images")
     post_type   = request.form.get("post_type", "story")
     topic       = request.form.get("topic")
     goal        = request.form.get("goal")
@@ -60,31 +64,28 @@ def upload():
     notes       = request.form.get("additional_notes")
     filter_name = request.form.get("filter_name", "original")
 
-    # Validuok filtrą
     if filter_name not in AVAILABLE_FILTERS:
         return jsonify({"error": f"Nežinomas filtras: {filter_name}"}), 400
 
-    # Validuok failus
     valid_files = [f for f in files if f and _allowed_file(f.filename)]
     if not valid_files:
         return jsonify({"error": "Nepridėta tinkamų nuotraukų"}), 400
 
-    count = len(valid_files)
+    count     = len(valid_files)
     ok, error = validate_upload_count(post_type, count)
     if not ok:
         return jsonify({"error": error}), 400
 
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
-    upload_ids = []
-    saved_filepaths = []  # sekame išsaugotus failus rollback'ui
+    upload_folder   = current_app.config["UPLOAD_FOLDER"]
+    upload_ids      = []
+    saved_filepaths = []
 
     try:
-        # Išsaugok kiekvieną failą
         for file in valid_files:
             original_name, filename, filepath = _save_upload(file, upload_folder)
             saved_filepaths.append(filepath)
 
-            ext = filepath.rsplit(".", 1)[1].lower()
+            ext       = filepath.rsplit(".", 1)[1].lower()
             mime_type = MIME_TYPES.get(ext, "image/jpeg")
 
             from PIL import Image as PILImage
@@ -95,40 +96,37 @@ def upload():
             except Exception:
                 width = height = file_size = None
 
-            upload = Upload(
-                filename=filename,
-                original_name=original_name,
-                filepath=filepath,
-                mime_type=mime_type,
-                file_size=file_size,
-                width=width,
-                height=height,
+            upload_obj = Upload(
+                filename      = filename,
+                original_name = original_name,
+                filepath      = filepath,
+                mime_type     = mime_type,
+                file_size     = file_size,
+                width         = width,
+                height        = height,
             )
-            g.db.add(upload)
+            g.db.add(upload_obj)
             g.db.flush()
-            upload_ids.append(upload.id)
+            upload_ids.append(upload_obj.id)
 
-        # Sukurk postą
         post = create_post_with_uploads(
-            db=g.db,
-            upload_ids=upload_ids,
-            post_type=post_type,
-            topic=topic,
-            goal=goal,
-            cta_type=cta_type,
-            additional_notes=notes,
+            db               = g.db,
+            upload_ids       = upload_ids,
+            post_type        = post_type,
+            topic            = topic,
+            goal             = goal,
+            cta_type         = cta_type,
+            additional_notes = notes,
         )
 
-        # Išsaugok filtro pasirinkimą
         post.filter_name = filter_name
         g.db.commit()
 
     except Exception as e:
         g.db.rollback()
-        # Ištrink jau išsaugotus failus
-        for filepath in saved_filepaths:
-            if os.path.exists(filepath):
-                os.remove(filepath)
+        for fp in saved_filepaths:
+            if os.path.exists(fp):
+                os.remove(fp)
         return jsonify({"error": str(e)}), 500
 
     return redirect(url_for("user.preview", post_id=post.id))
@@ -149,11 +147,13 @@ def preview(post_id: int):
     )
     uploads = [pu.upload for pu in post_uploads]
 
-    return render_template("preview.html",
-                           post=post,
-                           uploads=uploads,
-                           post_uploads=post_uploads,
-                           filters=AVAILABLE_FILTERS)
+    return render_template(
+        "preview.html",
+        post         = post,
+        uploads      = uploads,
+        post_uploads = post_uploads,
+        filters      = AVAILABLE_FILTERS,
+    )
 
 
 # ── Nuotraukos klasifikavimas ir teksto generavimas ────────────
@@ -169,43 +169,49 @@ def generate(post_id: int):
         .order_by(PostUpload.position)
         .all()
     )
-    slide_count = len(post_uploads)
-
-    # 1. Klasifikuok pirmą nuotrauką modeliu
+    slide_count  = len(post_uploads)
     first_upload = post_uploads[0].upload if post_uploads else None
+
+    # 1. Klasifikuok pirmą nuotrauką su ViT
     if first_upload:
         try:
-            from utils.image_preprocessing import preprocess_for_inference
-            from models.cnn_model import load_model
-            import torch
+            from models.vit_model import load_vit_model, predict_single_vit
+            from transformers import ViTImageProcessor
 
-            model_path = os.path.join(current_app.config["MODEL_FOLDER"], "cnn_model.pth")
+            model_path = os.path.join(
+                current_app.config["MODEL_FOLDER"], "vit_model.pth"
+            )
             if os.path.exists(model_path):
-                model = load_model(model_path)
-                model.eval()
-                tensor = preprocess_for_inference(first_upload.filepath)
-                with torch.no_grad():
-                    logits = model(tensor)
-                    idx = int(logits.argmax(dim=1))
-                    from utils.constants import IDX_TO_CATEGORY
-                    post.predicted_category = IDX_TO_CATEGORY[idx]
-                    post.confidence = float(torch.softmax(logits, dim=1)[0][idx])
+                processor = ViTImageProcessor.from_pretrained(
+                    "google/vit-base-patch16-224"
+                )
+                model    = load_vit_model(model_path, freeze_backbone=False)
+                category, confidence = predict_single_vit(
+                    model     = model,
+                    processor = processor,
+                    filepath  = first_upload.filepath,
+                    device    = "cpu",
+                )
+                post.predicted_category = category
+                post.confidence         = confidence
+                post.model_used         = "vit"
         except Exception as e:
             print(f"⚠️  Klasifikavimas nepavyko: {e}")
 
-    category = post.predicted_category or "lifestyle"
+    category    = post.predicted_category or "lifestyle"
     post.status = "processing"
     g.db.commit()
 
+    # 2. Generuok tekstą
     try:
         result = generate_caption(
-            category=category,
-            post_type=post.post_type,
-            topic=post.topic,
-            goal=post.goal,
-            cta_type=post.cta_type,
-            additional_notes=post.additional_notes,
-            slide_count=slide_count,
+            category         = category,
+            post_type        = post.post_type,
+            topic            = post.topic,
+            goal             = post.goal,
+            cta_type         = post.cta_type,
+            additional_notes = post.additional_notes,
+            slide_count      = slide_count,
         )
 
         post.hook    = result.get("hook", "")
@@ -214,9 +220,9 @@ def generate(post_id: int):
         post.caption = result.get("caption", "")
         post.status  = "completed"
 
-        # Užpildyk slide_text kiekvienai skaidriai
+        # 3. Užpildyk slide_text
         for pu in post_uploads:
-            if pu.slide_type == "single" or pu.slide_type == "hook":
+            if pu.slide_type in ("single", "hook"):
                 pu.slide_text = post.hook
             elif pu.slide_type == "story":
                 pu.slide_text = post.story
@@ -232,7 +238,7 @@ def generate(post_id: int):
         return jsonify({"error": str(e)}), 500
 
 
-# ── Teksto koregavimas (vartotojas redaguoja) ──────────────────
+# ── Teksto koregavimas ─────────────────────────────────────────
 @user_bp.route("/adjust/<int:post_id>", methods=["POST"])
 def adjust(post_id: int):
     post = g.db.query(Post).filter_by(id=post_id).first()
@@ -243,14 +249,18 @@ def adjust(post_id: int):
     if not data:
         return jsonify({"error": "Nėra duomenų"}), 400
 
-    post.hook  = data.get("hook", post.hook)
+    post.hook  = data.get("hook",  post.hook)
     post.story = data.get("story", post.story)
-    post.cta   = data.get("cta", post.cta)
-    # Atnaujink caption iš naujų dalių
-    post.caption = _build_caption_from_parts(post.hook, post.story, post.cta)
-    g.db.commit()
+    post.cta   = data.get("cta",   post.cta)
 
-    return jsonify({"success": True})
+    post.caption = _build_caption_from_parts(
+        post.hook  or "",
+        post.story or "",
+        post.cta   or "",
+    )
+
+    g.db.commit()
+    return jsonify({"success": True, "caption": post.caption})
 
 
 # ── AI teksto tobulinimas ──────────────────────────────────────
@@ -265,29 +275,34 @@ def refine(post_id: int):
         return jsonify({"error": "Nėra duomenų"}), 400
 
     user_edit = data.get("user_edit", "")
-    original  = f"{post.hook}\n{post.story}\n{post.cta}"
+    original  = _build_caption_from_parts(
+        post.hook  or "",
+        post.story or "",
+        post.cta   or "",
+    )
 
     try:
         result = refine_caption(
-            original_text=original,
-            user_edit=user_edit,
-            category=post.predicted_category or "lifestyle",
-            post_type=post.post_type,
+            original_text = original,
+            user_edit     = user_edit,
+            category      = post.predicted_category or "lifestyle",
+            post_type     = post.post_type,
         )
 
-        post.hook    = result.get("hook", post.hook)
-        post.story   = result.get("story", post.story)
-        post.cta     = result.get("cta", post.cta)
-        post.caption = result.get("caption", post.caption)
+        post.hook    = result.get("hook",    post.hook)
+        post.story   = result.get("story",   post.story)
+        post.cta     = result.get("cta",     post.cta)
+        post.caption = result.get("caption") or _build_caption_from_parts(
+            post.hook or "", post.story or "", post.cta or ""
+        )
         g.db.commit()
-
         return jsonify(result)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# ── Nuotraukos apdorojimas su tekstu ──────────────────────────
+# ── Nuotraukos renderinimas su tekstu ─────────────────────────
 @user_bp.route("/render/<int:post_id>", methods=["POST"])
 def render_image(post_id: int):
     post = g.db.query(Post).filter_by(id=post_id).first()
@@ -300,11 +315,11 @@ def render_image(post_id: int):
     zone        = data.get("zone")
     filter_name = data.get("filter_name", post.filter_name or "original")
 
-    # Validuok filtrą
     if filter_name not in AVAILABLE_FILTERS:
         return jsonify({"error": f"Nežinomas filtras: {filter_name}"}), 400
 
-    # Gauk pirmą nuotrauką (preview — story arba carousel hook)
+    post.filter_name = filter_name
+
     first_pu = (
         g.db.query(PostUpload)
         .filter_by(post_id=post_id)
@@ -319,26 +334,26 @@ def render_image(post_id: int):
 
     try:
         process_image_with_text(
-            image_path=first_pu.upload.filepath,
-            hook=post.hook or "",
-            body=post.story or "",
-            cta=post.cta or "",
-            output_path=output_path,
-            category=post.predicted_category,
-            zone=zone,
-            offset_x=offset_x,
-            offset_y=offset_y,
-            filter_name=filter_name,
+            image_path  = first_pu.upload.filepath,
+            hook        = post.hook  or "",
+            body        = post.story or "",
+            cta         = post.cta   or "",
+            output_path = output_path,
+            category    = post.predicted_category,
+            zone        = zone,
+            offset_x    = offset_x,
+            offset_y    = offset_y,
+            filter_name = filter_name,
         )
 
         post.output_path = output_path
         g.db.commit()
 
-        # Formuok URL iš output_path
-        relative = output_path.replace("static/", "").replace("static\\", "")
+        relative = output_path.replace("\\", "/")
+        relative = relative.replace("static/", "", 1)
         return jsonify({
-            "success": True,
-            "image_url": url_for("static", filename=relative)
+            "success":   True,
+            "image_url": url_for("static", filename=relative),
         })
 
     except Exception as e:
@@ -357,6 +372,6 @@ def download(post_id: int):
 
     return send_file(
         post.output_path,
-        as_attachment=True,
-        download_name=f"instagram_post_{post_id}.jpg"
+        as_attachment = True,
+        download_name = f"instagram_post_{post_id}.jpg",
     )

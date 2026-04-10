@@ -46,3 +46,9 @@ AVAILABLE_FILTERS = ["original", "warm", "cool", "bw", "vivid", "soft", "vintage
 
 # Modelių tipai
 MODEL_TYPES = ["cnn", "vit", "knn"]
+
+# Optimizeriai (naudojami admin route ir train.py)
+VALID_OPTIMIZERS = ["adam", "sgd", "rmsprop", "adamw"]
+
+# KNN metrikos
+VALID_KNN_METRICS = ["euclidean", "manhattan", "cosine"]

@@ -9,7 +9,6 @@
     padding: 0 24px 80px;
   }
 
-  /* ── Duomenų grafikai ────────────────────────────────────── */
   .charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -39,15 +38,9 @@
     font-size: 13px;
   }
   .bar-label { color: var(--text-muted); text-transform: capitalize; }
-  .bar-track {
-    height: 8px; background: var(--bg-3);
-    border-radius: 4px; overflow: hidden;
-  }
-  .bar-fill {
-    height: 100%; border-radius: 4px;
-    transition: width 0.8s ease;
-  }
-  .bar-count { text-align: right; font-weight: 500; font-size: 13px; }
+  .bar-track { height: 8px; background: var(--bg-3); border-radius: 4px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+  .bar-count { text-align: right; font-weight: 500; }
 
   /* Split bar */
   .split-bars { display: flex; flex-direction: column; gap: 14px; }
@@ -70,57 +63,21 @@
     font-size: 12px; color: var(--text-muted);
   }
   .legend-item { display: flex; align-items: center; gap: 6px; }
-  .legend-dot  {
-    width: 10px; height: 10px;
-    border-radius: 2px; flex-shrink: 0;
-  }
+  .legend-dot  { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
-  /* ── Modelių palyginimas ──────────────────────────────────── */
-  .model-tag {
-    padding: 3px 10px; border-radius: 20px;
-    font-size: 11px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.5px;
-  }
-  .tag-cnn { background: rgba(100,149,237,0.15); color: #6495ed; }
-  .tag-vit { background: rgba(147,112,219,0.15); color: #9370db; }
-  .tag-knn { background: rgba(255,160,122,0.15); color: #ffa07a; }
-
-  .acc-pill {
-    display: inline-block; padding: 2px 8px;
-    border-radius: 10px; font-size: 12px; font-weight: 600;
-  }
-  .acc-high { background: rgba(111,207,151,0.15); color: var(--success); }
-  .acc-mid  { background: rgba(232,201,126,0.15); color: var(--accent); }
-  .acc-low  { background: rgba(235,87,87,0.15);   color: var(--danger); }
-
-  /* Geriausių modelių santrauka */
+  /* Geriausių modelių juosta */
   .best-models {
     display: flex; gap: 16px; flex-wrap: wrap;
-    padding: 16px 20px;
+    padding: 14px 20px;
     border-bottom: 1px solid var(--border);
+    align-items: center;
   }
   .best-model-item {
-    display: flex; align-items: center; gap: 10px;
-    font-size: 13px;
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
   }
 
-  .section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  .section-header h2 {
-    font-family: var(--font-disp);
-    font-size: 1.3rem; font-weight: 600;
-  }
-
-  /* ── Responsive ──────────────────────────────────────────── */
   @media (max-width: 900px) {
     .charts-grid { grid-template-columns: 1fr; }
-    .section-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
   }
 </style>
 {% endblock %}
@@ -149,16 +106,17 @@
       <p class="chart-title">Nuotraukos pagal kategoriją</p>
       <div class="bar-chart">
         {% set colors = ['#6495ed','#e8c97e','#6fcf97','#ffa07a','#9370db'] %}
-
-        {% set cat_totals = [] %}
+        {% set ns = namespace(max_total=1) %}
         {% for cat, splits in data_stats.items() %}
-          {% set _ = cat_totals.append(splits.train + splits.val + splits.test) %}
+          {% set total = splits.train + splits.val + splits.test %}
+          {% if total > ns.max_total %}
+            {% set ns.max_total = total %}
+          {% endif %}
         {% endfor %}
-        {% set max_total = cat_totals | max if cat_totals else 1 %}
 
         {% for cat, splits in data_stats.items() %}
           {% set total = splits.train + splits.val + splits.test %}
-          {% set pct   = (total / max_total * 100) | round(1) %}
+          {% set pct   = (total / ns.max_total * 100) | round(1) %}
           {% set color = colors[loop.index0 % colors|length] %}
           <div class="bar-row">
             <span class="bar-label">{{ cat }}</span>
@@ -187,12 +145,9 @@
                 <span>{{ total }} nuotr.</span>
               </div>
               <div class="split-track">
-                <div class="split-seg seg-train" style="width:{{ tr_pct }}%"
-                     title="Train: {{ splits.train }}"></div>
-                <div class="split-seg seg-val"   style="width:{{ va_pct }}%"
-                     title="Val: {{ splits.val }}"></div>
-                <div class="split-seg seg-test"  style="width:{{ te_pct }}%"
-                     title="Test: {{ splits.test }}"></div>
+                <div class="split-seg seg-train" style="width:{{ tr_pct }}%"></div>
+                <div class="split-seg seg-val"   style="width:{{ va_pct }}%"></div>
+                <div class="split-seg seg-test"  style="width:{{ te_pct }}%"></div>
               </div>
             </div>
           {% endif %}
@@ -200,13 +155,13 @@
       </div>
       <div class="legend">
         <div class="legend-item">
-          <div class="legend-dot" style="background:#6495ed"></div> Train (70%)
+          <div class="legend-dot" style="background:#6495ed"></div> Train
         </div>
         <div class="legend-item">
-          <div class="legend-dot" style="background:var(--accent)"></div> Val (15%)
+          <div class="legend-dot" style="background:var(--accent)"></div> Val
         </div>
         <div class="legend-item">
-          <div class="legend-dot" style="background:var(--accent-2)"></div> Test (15%)
+          <div class="legend-dot" style="background:var(--accent-2)"></div> Test
         </div>
       </div>
     </div>
@@ -222,20 +177,10 @@
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:32px">
     {% if sessions %}
 
-      <!-- Geriausių modelių santrauka -->
-      {% set best = {} %}
-      {% for s in sessions %}
-        {% if s.test_accuracy is not none %}
-          {% if s.model_type not in best or s.test_accuracy > best[s.model_type].test_accuracy %}
-            {% set _ = best.update({s.model_type: s}) %}
-          {% endif %}
-        {% endif %}
-      {% endfor %}
-
-      {% if best %}
+      {% if best_models %}
       <div class="best-models">
-        <span class="text-muted text-sm" style="align-self:center">Geriausias rezultatas:</span>
-        {% for mtype, s in best.items() %}
+        <span class="text-muted text-sm">Geriausias rezultatas:</span>
+        {% for mtype, s in best_models.items() %}
         <div class="best-model-item">
           <span class="model-tag tag-{{ mtype }}">{{ mtype | upper }}</span>
           {% set acc = s.test_accuracy %}
@@ -247,7 +192,6 @@
       </div>
       {% endif %}
 
-      <!-- Pilna lentelė -->
       <div class="table-wrap">
         <table>
           <thead>
@@ -267,10 +211,12 @@
             {% for s in sessions %}
             <tr>
               <td>
-                <span class="model-tag tag-{{ s.model_type }}">{{ s.model_type | upper }}</span>
+                <span class="model-tag tag-{{ s.model_type }}">
+                  {{ s.model_type | upper }}
+                </span>
               </td>
               <td class="text-muted text-sm">
-                {{ s.created_at.strftime('%m-%d %H:%M') if s.created_at else '—' }}
+                {{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '—' }}
               </td>
               <td class="text-sm">
                 {{ (s.train_accuracy * 100)|round(1)|string + '%' if s.train_accuracy is not none else '—' }}
