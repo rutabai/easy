@@ -62,11 +62,16 @@
     input:focus, select:focus, textarea:focus { border-color: var(--accent); }
     select option { background: var(--bg-3); }
     textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
-
-    /* Disabled stiliai */
     input:disabled, select:disabled, textarea:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
+      opacity: 0.45; cursor: not-allowed;
+    }
+
+    code {
+      background: var(--bg-3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+      font-family: 'Courier New', monospace;
     }
 
     /* ── Navigacija ─────────────────────────────────────────── */
@@ -99,12 +104,11 @@
     .container    { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     .container-sm { max-width: 720px;  margin: 0 auto; padding: 0 24px; }
 
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr;          gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr);   gap: 16px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr);   gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr;        gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 
     .section { padding: 40px 0; }
-    .section + .section { padding-top: 0; }
 
     /* ── Komponentai ────────────────────────────────────────── */
     .card {
@@ -118,7 +122,7 @@
       font-size: 14px; font-weight: 500;
       transition: all var(--transition); white-space: nowrap;
     }
-    .btn-primary  { background: var(--accent); color: #111; }
+    .btn-primary   { background: var(--accent); color: #111; }
     .btn-primary:hover { background: #f0d68e; transform: translateY(-1px); }
     .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
     .btn-secondary:hover { background: var(--bg-3); border-color: #444; }
@@ -193,18 +197,20 @@
       font-weight: 600; margin-bottom: 4px;
     }
 
-    /* Empty state */
-    .empty-state {
-      text-align: center; padding: 56px 24px; color: var(--text-muted);
-    }
-    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 14px; display: block; }
-    .empty-state p { font-size: 14px; line-height: 1.7; }
-
     /* Section title */
     .section-title {
       font-size: 11px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 1px; color: var(--text-muted); margin-bottom: 14px;
     }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center; padding: 56px 24px; color: var(--text-muted);
+    }
+    .empty-icon {
+      display: block; font-size: 2.5rem; margin-bottom: 14px;
+    }
+    .empty-state p { font-size: 14px; line-height: 1.7; }
 
     /* Toast */
     #toast-container {
@@ -233,13 +239,32 @@
     .text-sm  { font-size: 13px; }
     .text-xs  { font-size: 11px; }
     .fw-600   { font-weight: 600; }
-    .mt-8  { margin-top: 8px; }  .mt-16 { margin-top: 16px; }  .mt-24 { margin-top: 24px; }
-    .mb-8  { margin-bottom: 8px; } .mb-16 { margin-bottom: 16px; }
-    .flex  { display: flex; }
-    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .mt-8  { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+    .mb-8  { margin-bottom: 8px; }
+    .mb-16 { margin-bottom: 16px; }
+    .flex         { display: flex; }
+    .flex-center  { display: flex; align-items: center; justify-content: center; }
     .flex-between { display: flex; align-items: center; justify-content: space-between; }
-    .gap-8  { gap: 8px; }  .gap-16 { gap: 16px; }
+    .gap-8  { gap: 8px; }
+    .gap-16 { gap: 16px; }
     .w-full { width: 100%; }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .nav { padding: 0 16px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      .page-header { padding: 32px 0 24px; }
+      .page-header h1 { font-size: 1.7rem; }
+    }
+
+    @media (max-width: 600px) {
+      .grid-4 { grid-template-columns: 1fr; }
+      .flex-between { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
   </style>
 
   {% block head %}{% endblock %}

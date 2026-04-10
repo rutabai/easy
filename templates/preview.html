@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+{% block title %}EASY — Preview & redagavimas{% endblock %}
+
+{% block head %}
+<style>
+  .preview-layout {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+    align-items: start;
+  }
+
+  /* ── Kairė ──────────────────────────────────────────────── */
+  .image-panel { position: sticky; top: 80px; }
+
+  .image-frame {
+    position: relative;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    aspect-ratio: 4/5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .image-frame img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .image-placeholder { color: var(--text-muted); font-size: 13px; text-align: center; }
+
+  .image-loading {
+    position: absolute; inset: 0;
+    background: rgba(15,15,15,0.7);
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    font-size: 13px; color: var(--text-muted);
+  }
+  .image-loading.visible { display: flex; }
+
+  /* Carousel miniatiūros */
+  .thumbnails {
+    display: flex; gap: 6px;
+    margin-top: 10px;
+    overflow-x: auto; padding-bottom: 4px;
+  }
+  .thumb {
+    width: 52px; height: 52px; flex-shrink: 0;
+    border-radius: 6px; object-fit: cover;
+    border: 2px solid var(--border);
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .thumb.active { border-color: var(--accent); }
+  .thumb:hover  { border-color: #555; }
+
+  /* Kategorija */
+  .category-info {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 12px; font-size: 12px; color: var(--text-muted);
+  }
+
+  /* Pozicijos valdymas */
+  .position-controls { margin-top: 16px; }
+  .position-row {
+    display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+  }
+  .pos-btn {
+    background: var(--bg-3); border: 1px solid var(--border);
+    color: var(--text); width: 40px; height: 40px;
+    border-radius: var(--radius-sm); font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .pos-btn:hover { background: var(--bg-2); border-color: var(--accent); color: var(--accent); }
+
+  /* Zonos */
+  .zone-btns {
+    display: flex; gap: 6px;
+    justify-content: center; margin-top: 10px;
+  }
+  .zone-btn {
+    padding: 6px 14px; background: var(--bg-3);
+    border: 1px solid var(--border); border-radius: 20px;
+    font-size: 12px; color: var(--text-muted); transition: all 0.15s;
+  }
+  .zone-btn:hover { border-color: #555; color: var(--text); }
+  .zone-btn.active {
+    border-color: var(--accent); color: var(--accent);
+    background: rgba(232,201,126,0.08);
+  }
+
+  /* ── Dešinė ─────────────────────────────────────────────── */
+  .control-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .panel-subtitle { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+  /* Teksto blokai */
+  .text-block { display: flex; flex-direction: column; gap: 6px; }
+  .text-block-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* Caption */
+  .caption-box {
+    background: var(--bg-3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px;
+    font-size: 13px; color: var(--text-muted);
+    line-height: 1.6; white-space: pre-wrap; min-height: 60px;
+  }
+
+  /* Filtro mini */
+  .filter-mini { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-mini-btn {
+    padding: 5px 12px; background: var(--bg-3);
+    border: 1px solid var(--border); border-radius: 20px;
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); transition: all 0.15s;
+  }
+  .filter-mini-btn:hover { border-color: #555; color: var(--text); }
+  .filter-mini-btn.active {
+    border-color: var(--accent); color: var(--accent);
+    background: rgba(232,201,126,0.08);
+  }
+
+  /* Veiksmo mygtukai */
+  .action-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+
+  /* Generate overlay */
+  #generateOverlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    font-size: 15px; color: var(--text-muted);
+    backdrop-filter: blur(4px);
+  }
+  #generateOverlay.visible { display: flex; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preview-layout">
+
+  <!-- KAIRĖ: nuotrauka -->
+  <div class="image-panel">
+    <div class="image-frame" id="imageFrame">
+      {% if uploads %}
+        <img id="mainImage" src="/static/uploads/{{ uploads[0].filename }}" alt="Preview" />
+      {% else %}
+        <div class="image-placeholder">Nuotrauka nerasta</div>
+      {% endif %}
+      <div class="image-loading" id="imageLoading">
+        <div class="spinner" style="width:28px;height:28px"></div>
+        <span>Apdorojama...</span>
+      </div>
+    </div>
+
+    <!-- Carousel miniatiūros -->
+    {% if uploads|length > 1 %}
+    <div class="thumbnails">
+      {% for upload in uploads %}
+      <img
+        class="thumb {% if loop.first %}active{% endif %}"
+        src="/static/uploads/{{ upload.filename }}"
+        alt="Skaidrė {{ loop.index }}"
+        onclick="selectThumb(this)"
+      />
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Kategorija -->
+    <div class="category-info">
+      {% if post.predicted_category %}
+        <span>🏷</span>
+        <span>Kategorija: <strong style="color:var(--text)">{{ post.predicted_category }}</strong></span>
+        {% if post.confidence %}
+          <span class="badge badge-muted">{{ (post.confidence * 100)|round(1) }}%</span>
+        {% endif %}
+      {% endif %}
+      <span class="badge badge-gold">{{ post.post_type }}</span>
+    </div>
+
+    <!-- Pozicijos valdymas -->
+    <div class="position-controls">
+      <p class="label" style="text-align:center;margin-bottom:10px">Teksto pozicija</p>
+      <div class="position-row">
+        <button class="pos-btn" onclick="move(0,-20)">↑</button>
+      </div>
+      <div class="position-row" style="margin-top:6px">
+        <button class="pos-btn" onclick="move(-20,0)">←</button>
+        <button class="pos-btn" onclick="renderPreview()" style="font-size:12px">⟳</button>
+        <button class="pos-btn" onclick="move(20,0)">→</button>
+      </div>
+      <div class="position-row" style="margin-top:6px">
+        <button class="pos-btn" onclick="move(0,20)">↓</button>
+      </div>
+      <div class="zone-btns">
+        <button class="zone-btn" onclick="setZone('top', this)">Viršus</button>
+        <button class="zone-btn active" onclick="setZone('bottom', this)">Apačia</button>
+        <button class="zone-btn" onclick="setZone('middle', this)">Vidurys</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEŠINĖ: valdymas -->
+  <div class="control-panel">
+    <div>
+      <h1 class="panel-title">Redaguok ir generuok</h1>
+      <p class="panel-subtitle">
+        Pirmiausia spustelėk
+        <strong style="color:var(--accent)">Generuoti tekstą</strong>,
+        tada redaguok ir atnaujink preview.
+      </p>
+    </div>
+
+    <button class="btn btn-primary btn-lg w-full" onclick="generateText()">
+      ✦ Generuoti tekstą
+    </button>
+
+    <hr class="divider" />
+
+    <!-- Hook -->
+    <div class="text-block card">
+      <div class="text-block-header">
+        <label class="label" style="margin:0">🪝 Hook</label>
+        <span class="text-xs text-muted">Pirmas sakinys</span>
+      </div>
+      <textarea id="hookText" placeholder="Spustelėk „Generuoti tekstą"...">{{ post.hook or '' }}</textarea>
+    </div>
+
+    <!-- Story -->
+    <div class="text-block card">
+      <div class="text-block-header">
+        <label class="label" style="margin:0">📖 Story</label>
+        <span class="text-xs text-muted">Pagrindinis turinys</span>
+      </div>
+      <textarea id="storyText" rows="4" placeholder="Pagrindinis tekstas...">{{ post.story or '' }}</textarea>
+    </div>
+
+    <!-- CTA -->
+    <div class="text-block card">
+      <div class="text-block-header">
+        <label class="label" style="margin:0">📣 Call to Action</label>
+        <span class="text-xs text-muted">Veiksmo kvietimas</span>
+      </div>
+      <textarea id="ctaText" rows="2" placeholder="Kvietimas veikti...">{{ post.cta or '' }}</textarea>
+    </div>
+
+    <!-- Caption -->
+    <div class="card">
+      <div class="flex-between mb-8">
+        <label class="label" style="margin:0">📋 Caption</label>
+        <button class="btn btn-ghost btn-sm" onclick="copyCaption()">Kopijuoti</button>
+      </div>
+      <div class="caption-box" id="captionBox">{{ post.caption or 'Čia bus pilnas caption po generavimo...' }}</div>
+    </div>
+
+    <!-- Filtras -->
+    <div class="card">
+      <p class="label">🎨 Filtras</p>
+      <div class="filter-mini">
+        {% for f in filters %}
+        <button
+          class="filter-mini-btn {% if f == (post.filter_name or 'original') %}active{% endif %}"
+          onclick="selectFilter('{{ f }}', this)"
+        >{{ f }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Veiksmai -->
+    <div class="action-grid">
+      <button class="btn btn-secondary" onclick="saveAndRefine()">✨ AI patobulinti</button>
+      <button class="btn btn-secondary" onclick="saveAndRender()">🖼 Atnaujinti preview</button>
+    </div>
+
+    <a href="/download/{{ post.id }}"
+       class="btn btn-primary w-full"
+       id="downloadBtn"
+       style="{% if not post.output_path %}opacity:0.4;pointer-events:none{% endif %}">
+      ⬇ Parsisiųsti nuotrauką
+    </a>
+
+    <a href="/" class="btn btn-ghost w-full" style="justify-content:center">← Grįžti į pradžią</a>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="generateOverlay">
+  <div class="spinner" style="width:36px;height:36px;border-width:3px"></div>
+  <span id="overlayText">Generuojamas tekstas...</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const POST_ID = {{ post.id }};
+let offsetX = 0, offsetY = 0;
+let currentZone   = null;
+let currentFilter = '{{ post.filter_name or "original" }}';
+
+/* ── Generavimas ────────────────────────────────────────── */
+async function generateText() {
+  showOverlay('Klasifikuojama nuotrauka ir generuojamas tekstas...');
+  try {
+    const res  = await fetch(`/generate/${POST_ID}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+
+    document.getElementById('hookText').value        = data.hook    || '';
+    document.getElementById('storyText').value       = data.story   || '';
+    document.getElementById('ctaText').value         = data.cta     || '';
+    document.getElementById('captionBox').textContent = data.caption || '';
+
+    showToast('Tekstas sugeneruotas! 🎉');
+    await renderPreview();
+  } catch(e) {
+    showToast('Klaida generuojant tekstą', 'error');
+  } finally {
+    hideOverlay();
+  }
+}
+
+/* ── Preview ────────────────────────────────────────────── */
+async function renderPreview() {
+  document.getElementById('imageLoading').classList.add('visible');
+  try {
+    await saveText();
+    const res = await fetch(`/render/${POST_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        offset_x: offsetX, offset_y: offsetY,
+        zone: currentZone, filter_name: currentFilter,
+      })
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+
+    document.getElementById('mainImage').src = data.image_url + '?t=' + Date.now();
+    const dl = document.getElementById('downloadBtn');
+    dl.style.opacity = '1';
+    dl.style.pointerEvents = 'auto';
+  } catch(e) {
+    showToast('Klaida atnaujinant preview', 'error');
+  } finally {
+    document.getElementById('imageLoading').classList.remove('visible');
+  }
+}
+
+/* ── Išsaugojimas ───────────────────────────────────────── */
+async function saveText() {
+  await fetch(`/adjust/${POST_ID}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      hook:  document.getElementById('hookText').value,
+      story: document.getElementById('storyText').value,
+      cta:   document.getElementById('ctaText').value,
+    })
+  });
+}
+
+/* ── AI tobulinimas ─────────────────────────────────────── */
+async function saveAndRefine() {
+  showOverlay('AI tobulina tekstą...');
+  try {
+    await saveText();
+    const userEdit = [
+      document.getElementById('hookText').value,
+      document.getElementById('storyText').value,
+      document.getElementById('ctaText').value,
+    ].join('\n');
+
+    const res = await fetch(`/refine/${POST_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_edit: userEdit })
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+
+    document.getElementById('hookText').value         = data.hook    || '';
+    document.getElementById('storyText').value        = data.story   || '';
+    document.getElementById('ctaText').value          = data.cta     || '';
+    document.getElementById('captionBox').textContent = data.caption || '';
+
+    showToast('Tekstas patobulintas ✨');
+    await renderPreview();
+  } catch(e) {
+    showToast('Klaida tobulinant tekstą', 'error');
+  } finally {
+    hideOverlay();
+  }
+}
+
+async function saveAndRender() {
+  await renderPreview();
+  showToast('Preview atnaujintas');
+}
+
+/* ── Pozicija ───────────────────────────────────────────── */
+function move(dx, dy) { offsetX += dx; offsetY += dy; renderPreview(); }
+
+function setZone(zone, btn) {
+  currentZone = zone;
+  document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPreview();
+}
+
+/* ── Filtras ────────────────────────────────────────────── */
+function selectFilter(name, btn) {
+  currentFilter = name;
+  document.querySelectorAll('.filter-mini-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPreview();
+}
+
+/* ── Miniatiūros ────────────────────────────────────────── */
+function selectThumb(el) {
+  document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('mainImage').src = el.src;
+}
+
+/* ── Caption kopijavimas ────────────────────────────────── */
+function copyCaption() {
+  navigator.clipboard.writeText(
+    document.getElementById('captionBox').textContent
+  ).then(() => showToast('Caption nukopijuotas!'));
+}
+
+/* ── Overlay ────────────────────────────────────────────── */
+function showOverlay(text) {
+  document.getElementById('overlayText').textContent = text;
+  document.getElementById('generateOverlay').classList.add('visible');
+}
+function hideOverlay() {
+  document.getElementById('generateOverlay').classList.remove('visible');
+}
+
+// Jei jau yra tekstas — automatiškai render
+window.addEventListener('load', () => {
+  if (document.getElementById('hookText').value) renderPreview();
+});
+</script>
+{% endblock %}

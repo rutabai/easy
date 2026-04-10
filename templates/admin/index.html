@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}EASY — Admin Dashboard{% endblock %}
+
+{% block head %}
+<style>
+  .admin-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Dashboard kortelės ──────────────────────────────────── */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .dash-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .dash-card:hover { border-color: #444; }
+  .dash-card-icon  { font-size: 1.8rem; }
+  .dash-card h3    { font-size: 15px; font-weight: 600; }
+  .dash-card p     { font-size: 13px; color: var(--text-muted); flex: 1; }
+
+  /* Modelių žymės */
+  .model-tag {
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tag-cnn { background: rgba(100,149,237,0.15); color: #6495ed; }
+  .tag-vit { background: rgba(147,112,219,0.15); color: #9370db; }
+  .tag-knn { background: rgba(255,160,122,0.15); color: #ffa07a; }
+
+  /* Accuracy spalvos */
+  .acc-pill {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 12px; font-weight: 600;
+  }
+  .acc-high { background: rgba(111,207,151,0.15); color: var(--success); }
+  .acc-mid  { background: rgba(232,201,126,0.15); color: var(--accent); }
+  .acc-low  { background: rgba(235,87,87,0.15);   color: var(--danger); }
+
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-header h2 {
+    font-family: var(--font-disp);
+    font-size: 1.3rem; font-weight: 600;
+  }
+
+  /* ── Responsive ──────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .dash-grid { grid-template-columns: 1fr; }
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <div class="page-header">
+    <h1>Admin <em style="font-family:var(--font-disp);font-style:italic;font-weight:300;color:var(--text-muted)">dashboard</em></h1>
+    <p>Valdyk duomenis, treniruok modelius, peržiūrėk statistiką</p>
+  </div>
+
+  <!-- Navigacinės kortelės -->
+  <div class="dash-grid">
+
+    <!-- Duomenys -->
+    <div class="dash-card">
+      <span class="dash-card-icon">🗄️</span>
+      <h3>Duomenys</h3>
+      <p>Įkelk treniravimo nuotraukas į duomenų bazę iš <code>data/</code> aplanko.</p>
+      <button class="btn btn-secondary btn-sm" id="loadDataBtn" onclick="loadData()">
+        Įkelti duomenis į DB
+      </button>
+    </div>
+
+    <!-- Treniravimas -->
+    <a href="/admin/train" class="dash-card" style="cursor:pointer">
+      <span class="dash-card-icon">🚀</span>
+      <h3>Treniravimas</h3>
+      <p>Treniruok CNN, ViT ar KNN modelį su pasirinktais hyperparametrais.</p>
+      <span class="btn btn-secondary btn-sm" style="align-self:flex-start">
+        Eiti į treniravimą →
+      </span>
+    </a>
+
+    <!-- Statistika -->
+    <a href="/admin/stats" class="dash-card" style="cursor:pointer">
+      <span class="dash-card-icon">📊</span>
+      <h3>Statistika</h3>
+      <p>Peržiūrėk duomenų pasiskirstymą ir modelių palyginimą.</p>
+      <span class="btn btn-secondary btn-sm" style="align-self:flex-start">
+        Eiti į statistiką →
+      </span>
+    </a>
+
+  </div>
+
+  <!-- Paskutinės sesijos -->
+  <div class="section-header">
+    <h2>Paskutinės treniravimo sesijos</h2>
+    <a href="/admin/stats" class="btn btn-ghost btn-sm">Visos sesijos →</a>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    {% if sessions %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Modelis</th>
+            <th>Data</th>
+            <th>Val Acc</th>
+            <th>Test Acc</th>
+            <th>F1</th>
+            <th>Pastabos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sessions %}
+          <tr>
+            <td>
+              <span class="model-tag tag-{{ s.model_type }}">
+                {{ s.model_type | upper }}
+              </span>
+            </td>
+            <td class="text-muted text-sm">
+              {{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '—' }}
+            </td>
+            <td>
+              {% if s.val_accuracy is not none %}
+                {% set acc = s.val_accuracy %}
+                <span class="acc-pill {% if acc >= 0.8 %}acc-high{% elif acc >= 0.6 %}acc-mid{% else %}acc-low{% endif %}">
+                  {{ (acc * 100)|round(1) }}%
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if s.test_accuracy is not none %}
+                {% set acc = s.test_accuracy %}
+                <span class="acc-pill {% if acc >= 0.8 %}acc-high{% elif acc >= 0.6 %}acc-mid{% else %}acc-low{% endif %}">
+                  {{ (acc * 100)|round(1) }}%
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if s.f1_score is not none %}
+                {% set f1 = s.f1_score %}
+                <span class="acc-pill {% if f1 >= 0.8 %}acc-high{% elif f1 >= 0.6 %}acc-mid{% else %}acc-low{% endif %}">
+                  {{ (f1 * 100)|round(1) }}%
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-muted text-sm">{{ s.notes or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon">🤖</span>
+      <p>Dar nėra treniravimo sesijų.<br>
+         Pradėk nuo <a href="/admin/train" style="color:var(--accent)">treniravimo puslapio</a>.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadData() {
+  const btn = document.getElementById('loadDataBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px"></span> Įkeliama...';
+
+  try {
+    const res  = await fetch('/admin/load-data', { method: 'POST' });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+    showToast('Duomenys įkelti į DB! ✅');
+    setTimeout(() => location.reload(), 1500);
+  } catch(e) {
+    showToast('Klaida įkeliant duomenis', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Įkelti duomenis į DB';
+  }
+}
+</script>
+{% endblock %}

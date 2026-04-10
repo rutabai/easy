@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}EASY — Statistika{% endblock %}
+
+{% block head %}
+<style>
+  .stats-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Duomenų grafikai ────────────────────────────────────── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .chart-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .chart-title {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: 20px;
+  }
+
+  /* Bar chart */
+  .bar-chart { display: flex; flex-direction: column; gap: 12px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 48px;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+  }
+  .bar-label { color: var(--text-muted); text-transform: capitalize; }
+  .bar-track {
+    height: 8px; background: var(--bg-3);
+    border-radius: 4px; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.8s ease;
+  }
+  .bar-count { text-align: right; font-weight: 500; font-size: 13px; }
+
+  /* Split bar */
+  .split-bars { display: flex; flex-direction: column; gap: 14px; }
+  .split-row  { display: flex; flex-direction: column; gap: 6px; }
+  .split-label {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: var(--text-muted); text-transform: capitalize;
+  }
+  .split-track {
+    height: 20px; background: var(--bg-3);
+    border-radius: 4px; overflow: hidden; display: flex;
+  }
+  .split-seg { height: 100%; transition: width 0.8s ease; }
+  .seg-train { background: #6495ed; }
+  .seg-val   { background: var(--accent); }
+  .seg-test  { background: var(--accent-2); }
+
+  .legend {
+    display: flex; gap: 16px; margin-top: 16px;
+    font-size: 12px; color: var(--text-muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot  {
+    width: 10px; height: 10px;
+    border-radius: 2px; flex-shrink: 0;
+  }
+
+  /* ── Modelių palyginimas ──────────────────────────────────── */
+  .model-tag {
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tag-cnn { background: rgba(100,149,237,0.15); color: #6495ed; }
+  .tag-vit { background: rgba(147,112,219,0.15); color: #9370db; }
+  .tag-knn { background: rgba(255,160,122,0.15); color: #ffa07a; }
+
+  .acc-pill {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 12px; font-weight: 600;
+  }
+  .acc-high { background: rgba(111,207,151,0.15); color: var(--success); }
+  .acc-mid  { background: rgba(232,201,126,0.15); color: var(--accent); }
+  .acc-low  { background: rgba(235,87,87,0.15);   color: var(--danger); }
+
+  /* Geriausių modelių santrauka */
+  .best-models {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .best-model-item {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+  }
+
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-header h2 {
+    font-family: var(--font-disp);
+    font-size: 1.3rem; font-weight: 600;
+  }
+
+  /* ── Responsive ──────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-layout">
+  <div class="page-header">
+    <div class="flex-between">
+      <div>
+        <h1>Statistika ir <em style="font-family:var(--font-disp);font-style:italic;font-weight:300;color:var(--text-muted)">analizė</em></h1>
+        <p>Duomenų pasiskirstymas ir modelių palyginimas</p>
+      </div>
+      <a href="/admin/" class="btn btn-ghost btn-sm">← Dashboard</a>
+    </div>
+  </div>
+
+  <!-- 1. Duomenų grafikai -->
+  <div class="section-header">
+    <h2>Duomenų pasiskirstymas</h2>
+  </div>
+
+  <div class="charts-grid">
+
+    <!-- Nuotraukos pagal kategoriją -->
+    <div class="chart-card">
+      <p class="chart-title">Nuotraukos pagal kategoriją</p>
+      <div class="bar-chart">
+        {% set colors = ['#6495ed','#e8c97e','#6fcf97','#ffa07a','#9370db'] %}
+
+        {% set cat_totals = [] %}
+        {% for cat, splits in data_stats.items() %}
+          {% set _ = cat_totals.append(splits.train + splits.val + splits.test) %}
+        {% endfor %}
+        {% set max_total = cat_totals | max if cat_totals else 1 %}
+
+        {% for cat, splits in data_stats.items() %}
+          {% set total = splits.train + splits.val + splits.test %}
+          {% set pct   = (total / max_total * 100) | round(1) %}
+          {% set color = colors[loop.index0 % colors|length] %}
+          <div class="bar-row">
+            <span class="bar-label">{{ cat }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:{{ pct }}%;background:{{ color }}"></div>
+            </div>
+            <span class="bar-count">{{ total }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Train / Val / Test split -->
+    <div class="chart-card">
+      <p class="chart-title">Train / Val / Test pasiskirstymas</p>
+      <div class="split-bars">
+        {% for cat, splits in data_stats.items() %}
+          {% set total = splits.train + splits.val + splits.test %}
+          {% if total > 0 %}
+            {% set tr_pct = (splits.train / total * 100) | round(1) %}
+            {% set va_pct = (splits.val   / total * 100) | round(1) %}
+            {% set te_pct = (splits.test  / total * 100) | round(1) %}
+            <div class="split-row">
+              <div class="split-label">
+                <span>{{ cat }}</span>
+                <span>{{ total }} nuotr.</span>
+              </div>
+              <div class="split-track">
+                <div class="split-seg seg-train" style="width:{{ tr_pct }}%"
+                     title="Train: {{ splits.train }}"></div>
+                <div class="split-seg seg-val"   style="width:{{ va_pct }}%"
+                     title="Val: {{ splits.val }}"></div>
+                <div class="split-seg seg-test"  style="width:{{ te_pct }}%"
+                     title="Test: {{ splits.test }}"></div>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#6495ed"></div> Train (70%)
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--accent)"></div> Val (15%)
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--accent-2)"></div> Test (15%)
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 2. Modelių palyginimas -->
+  <div class="section-header">
+    <h2>Modelių palyginimas</h2>
+    <a href="/admin/train" class="btn btn-secondary btn-sm">+ Naujas treniravimas</a>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:32px">
+    {% if sessions %}
+
+      <!-- Geriausių modelių santrauka -->
+      {% set best = {} %}
+      {% for s in sessions %}
+        {% if s.test_accuracy is not none %}
+          {% if s.model_type not in best or s.test_accuracy > best[s.model_type].test_accuracy %}
+            {% set _ = best.update({s.model_type: s}) %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+
+      {% if best %}
+      <div class="best-models">
+        <span class="text-muted text-sm" style="align-self:center">Geriausias rezultatas:</span>
+        {% for mtype, s in best.items() %}
+        <div class="best-model-item">
+          <span class="model-tag tag-{{ mtype }}">{{ mtype | upper }}</span>
+          {% set acc = s.test_accuracy %}
+          <span class="acc-pill {% if acc >= 0.8 %}acc-high{% elif acc >= 0.6 %}acc-mid{% else %}acc-low{% endif %}">
+            {{ (acc * 100) | round(1) }}%
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Pilna lentelė -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Modelis</th>
+              <th>Data</th>
+              <th>Train Acc</th>
+              <th>Val Acc</th>
+              <th>Test Acc</th>
+              <th>Precision</th>
+              <th>Recall</th>
+              <th>F1</th>
+              <th>Pastabos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td>
+                <span class="model-tag tag-{{ s.model_type }}">{{ s.model_type | upper }}</span>
+              </td>
+              <td class="text-muted text-sm">
+                {{ s.created_at.strftime('%m-%d %H:%M') if s.created_at else '—' }}
+              </td>
+              <td class="text-sm">
+                {{ (s.train_accuracy * 100)|round(1)|string + '%' if s.train_accuracy is not none else '—' }}
+              </td>
+              <td>
+                {% if s.val_accuracy is not none %}
+                  {% set acc = s.val_accuracy %}
+                  <span class="acc-pill {% if acc >= 0.8 %}acc-high{% elif acc >= 0.6 %}acc-mid{% else %}acc-low{% endif %}">
+                    {{ (acc * 100)|round(1) }}%
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if s.test_accuracy is not none %}
+                  {% set acc = s.test_accuracy %}
+                  <span class="acc-pill {% if acc >= 0.8 %}acc-high{% elif acc >= 0.6 %}acc-mid{% else %}acc-low{% endif %}">
+                    {{ (acc * 100)|round(1) }}%
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-sm">
+                {{ (s.precision * 100)|round(1)|string + '%' if s.precision is not none else '—' }}
+              </td>
+              <td class="text-sm">
+                {{ (s.recall * 100)|round(1)|string + '%' if s.recall is not none else '—' }}
+              </td>
+              <td>
+                {% if s.f1_score is not none %}
+                  {% set f1 = s.f1_score %}
+                  <span class="acc-pill {% if f1 >= 0.8 %}acc-high{% elif f1 >= 0.6 %}acc-mid{% else %}acc-low{% endif %}">
+                    {{ (f1 * 100)|round(1) }}%
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-muted text-sm">{{ s.notes or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon">📊</span>
+      <p>Dar nėra treniravimo sesijų.<br>
+         <a href="/admin/train" style="color:var(--accent)">Pradėk treniravimą →</a>
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
