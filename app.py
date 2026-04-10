@@ -53,3 +53,5 @@ if __name__ == "__main__":
     app = create_app()
     debug_mode = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     app.run(debug=debug_mode)
+
+    
