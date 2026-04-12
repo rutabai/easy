@@ -54,9 +54,10 @@
     cursor: pointer;
     position: relative;
   }
-  .upload-card:hover, .upload-card.drag-over {
+  .upload-card:hover,
+  .upload-card.drag-over {
     border-color: var(--accent);
-    background: rgba(232,201,126,0.04);
+    background: rgba(232, 201, 126, 0.04);
   }
   .upload-card input[type="file"] {
     position: absolute;
@@ -68,15 +69,27 @@
     border: none;
     padding: 0;
   }
-  .upload-icon { font-size: 2.5rem; margin-bottom: 12px; display: block; }
-  .upload-card h3 { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
-  .upload-card p  { color: var(--text-muted); font-size: 13px; }
+  .upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .upload-card h3 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .upload-card p {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
 
   .upload-hint {
     display: flex;
     justify-content: center;
     gap: 16px;
     margin-top: 16px;
+    flex-wrap: wrap;
   }
   .upload-hint-item {
     display: flex;
@@ -86,7 +99,8 @@
     color: var(--text-muted);
   }
   .upload-hint-item .dot {
-    width: 6px; height: 6px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--border);
     flex-shrink: 0;
@@ -98,14 +112,16 @@
     justify-content: center;
     gap: 8px;
     padding: 10px 18px;
-    background: rgba(232,201,126,0.08);
-    border: 1px solid rgba(232,201,126,0.25);
+    background: rgba(232, 201, 126, 0.08);
+    border: 1px solid rgba(232, 201, 126, 0.25);
     border-radius: var(--radius-sm);
     font-size: 13px;
     color: var(--accent);
     margin-top: 12px;
   }
-  .format-badge.visible { display: flex; }
+  .format-badge.visible {
+    display: flex;
+  }
 
   .preview-strip {
     display: none;
@@ -113,15 +129,19 @@
     gap: 8px;
     margin-top: 16px;
   }
-  .preview-strip.visible { display: flex; }
+  .preview-strip.visible {
+    display: flex;
+  }
   .preview-thumb {
-    width: 60px; height: 60px;
+    width: 60px;
+    height: 60px;
     border-radius: 6px;
     object-fit: cover;
     border: 2px solid var(--border);
   }
   .preview-more {
-    width: 60px; height: 60px;
+    width: 60px;
+    height: 60px;
     border-radius: 6px;
     background: var(--bg-3);
     border: 2px dashed var(--border);
@@ -137,8 +157,15 @@
     grid-template-columns: repeat(7, 1fr);
     gap: 8px;
   }
-  .filter-option { position: relative; }
-  .filter-option input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+  .filter-option {
+    position: relative;
+  }
+  .filter-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
   .filter-label {
     display: flex;
     flex-direction: column;
@@ -151,18 +178,28 @@
     cursor: pointer;
     transition: all 0.15s ease;
   }
-  .filter-label:hover { border-color: #444; }
+  .filter-label:hover {
+    border-color: #444;
+  }
   .filter-option input:checked + .filter-label {
     border-color: var(--accent);
-    background: rgba(232,201,126,0.08);
+    background: rgba(232, 201, 126, 0.08);
   }
-  .filter-dot { width: 28px; height: 28px; border-radius: 50%; }
+  .filter-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+  }
   .filter-name {
-    font-size: 10px; font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     color: var(--text-muted);
   }
-  .filter-option input:checked + .filter-label .filter-name { color: var(--accent); }
+  .filter-option input:checked + .filter-label .filter-name {
+    color: var(--accent);
+  }
 
   .dot-original { background: linear-gradient(135deg, #aaa, #666); }
   .dot-warm     { background: linear-gradient(135deg, #f4a261, #e76f51); }
@@ -172,7 +209,10 @@
   .dot-soft     { background: linear-gradient(135deg, #ffd6e0, #ffb3c6); }
   .dot-vintage  { background: linear-gradient(135deg, #c9a96e, #8b6f47); }
 
-  .submit-section { text-align: center; padding: 8px 0; }
+  .submit-section {
+    text-align: center;
+    padding: 8px 0;
+  }
   .btn-generate {
     background: var(--accent);
     color: #111;
@@ -190,13 +230,25 @@
   .btn-generate:hover {
     background: #f0d68e;
     transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(232,201,126,0.25);
+    box-shadow: 0 8px 32px rgba(232, 201, 126, 0.25);
   }
   .btn-generate:disabled {
     opacity: 0.4;
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+  }
+
+  @media (max-width: 900px) {
+    .filter-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  @media (max-width: 600px) {
+    .filter-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 </style>
 {% endblock %}
@@ -209,8 +261,6 @@
 </section>
 
 <form class="main-form" action="/upload" method="POST" enctype="multipart/form-data" id="mainForm">
-
-  <!-- 1. Upload -->
   <div>
     <p class="section-title">1 — Nuotraukos</p>
     <div class="upload-card" id="uploadCard">
@@ -224,8 +274,185 @@
         <div class="upload-hint-item"><span class="dot"></span>JPG, PNG, WEBP</div>
       </div>
     </div>
-    <div class="format-badge" id="formatBadge">
-      <span id="
 
-      </script>
+    <div class="format-badge" id="formatBadge">
+      <span id="formatIcon">📖</span>
+      <strong id="formatText">Formatas bus nustatytas automatiškai</strong>
+    </div>
+
+    <div class="preview-strip" id="previewStrip"></div>
+  </div>
+
+  <input type="hidden" name="post_type" id="postType" value="story" />
+
+  <div class="card">
+    <p class="section-title">2 — Turinio intencija</p>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="label" for="topic">Tema</label>
+        <input type="text" name="topic" id="topic" placeholder="pvz. naujas produktas, receptas, kelionė..." />
+      </div>
+
+      <div class="form-group">
+        <label class="label" for="goal">Tikslas</label>
+        <select name="goal" id="goal">
+          <option value="">— pasirinkti —</option>
+          {% for g in goals %}
+            <option value="{{ g }}">{{ g | replace('_', ' ') | title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label" for="cta_type">Call to action</label>
+        <select name="cta_type" id="cta_type">
+          <option value="">— pasirinkti —</option>
+          {% for c in cta_types %}
+            <option value="{{ c }}">{{ c | replace('_', ' ') | title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label" for="additional_notes">Papildomos pastabos</label>
+        <input type="text" name="additional_notes" id="additional_notes" placeholder="pvz. draugiškas tonas, be kainų..." />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">3 — Filtras</p>
+    <div class="filter-grid">
+      {% set filter_dots = {
+        'original': 'dot-original',
+        'warm':     'dot-warm',
+        'cool':     'dot-cool',
+        'bw':       'dot-bw',
+        'vivid':    'dot-vivid',
+        'soft':     'dot-soft',
+        'vintage':  'dot-vintage'
+      } %}
+      {% for f in filters %}
+      <div class="filter-option">
+        <input type="radio" name="filter_name" id="filter_{{ f }}" value="{{ f }}" {% if f == 'original' %}checked{% endif %} />
+        <label class="filter-label" for="filter_{{ f }}">
+          <span class="filter-dot {{ filter_dots.get(f, '') }}"></span>
+          <span class="filter-name">{{ f | title }}</span>
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="submit-section">
+    <button type="submit" class="btn-generate" id="submitBtn" disabled>
+      <span id="submitIcon">✦</span>
+      <span id="submitText">Generuoti</span>
+    </button>
+    <p class="text-muted text-sm mt-8">
+      Nuotrauka bus klasifikuota ir tekstas sugeneruotas automatiškai
+    </p>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fileInput = document.getElementById('fileInput');
+const uploadCard = document.getElementById('uploadCard');
+const formatBadge = document.getElementById('formatBadge');
+const formatIcon = document.getElementById('formatIcon');
+const formatText = document.getElementById('formatText');
+const previewStrip = document.getElementById('previewStrip');
+const postTypeInput = document.getElementById('postType');
+const submitBtn = document.getElementById('submitBtn');
+const mainForm = document.getElementById('mainForm');
+
+uploadCard.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadCard.classList.add('drag-over');
+});
+
+uploadCard.addEventListener('dragleave', () => {
+  uploadCard.classList.remove('drag-over');
+});
+
+uploadCard.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadCard.classList.remove('drag-over');
+  fileInput.files = e.dataTransfer.files;
+  handleFiles(fileInput.files);
+});
+
+fileInput.addEventListener('change', () => {
+  handleFiles(fileInput.files);
+});
+
+function resetUploadState() {
+  fileInput.value = '';
+  previewStrip.innerHTML = '';
+  previewStrip.classList.remove('visible');
+  formatBadge.classList.remove('visible');
+  postTypeInput.value = 'story';
+  submitBtn.disabled = true;
+}
+
+function handleFiles(files) {
+  if (!files || files.length === 0) {
+    resetUploadState();
+    return;
+  }
+
+  const count = files.length;
+
+  if (count > 10) {
+    showToast('Galima įkelti daugiausiai 10 nuotraukų', 'error');
+    resetUploadState();
+    return;
+  }
+
+  if (count === 1) {
+    formatIcon.textContent = '📖';
+    formatText.textContent = 'Formatas automatiškai nustatytas: Story';
+    postTypeInput.value = 'story';
+  } else {
+    formatIcon.textContent = '🎴';
+    formatText.textContent = `Formatas automatiškai nustatytas: Carousel (${count} skaidrės)`;
+    postTypeInput.value = 'carousel';
+  }
+  formatBadge.classList.add('visible');
+
+  previewStrip.innerHTML = '';
+  const maxShow = Math.min(count, 6);
+
+  for (let i = 0; i < maxShow; i++) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.createElement('img');
+      img.className = 'preview-thumb';
+      img.src = e.target.result;
+      img.alt = `Preview ${i + 1}`;
+      previewStrip.appendChild(img);
+    };
+    reader.readAsDataURL(files[i]);
+  }
+
+  if (count > 6) {
+    const more = document.createElement('div');
+    more.className = 'preview-more';
+    more.textContent = `+${count - 6}`;
+    previewStrip.appendChild(more);
+  }
+
+  previewStrip.classList.add('visible');
+  submitBtn.disabled = false;
+}
+
+mainForm.addEventListener('submit', () => {
+  submitBtn.disabled = true;
+  document.getElementById('submitIcon').innerHTML =
+    '<span class="spinner" style="width:16px;height:16px"></span>';
+  document.getElementById('submitText').textContent = 'Generuojama...';
+});
+</script>
 {% endblock %}
