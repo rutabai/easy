@@ -1,4 +1,5 @@
 import anthropic
+import json
 import os
 from dotenv import load_dotenv
 from utils.constants import CATEGORIES, VALID_GOALS, VALID_CTA_TYPES

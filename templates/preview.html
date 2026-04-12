@@ -35,7 +35,7 @@
 
   .image-loading {
     position: absolute; inset: 0;
-    background: rgba(15,15,15,0.7);
+    background: rgba(255,255,255,0.75);
     display: none;
     align-items: center; justify-content: center;
     flex-direction: column; gap: 12px;
@@ -56,7 +56,7 @@
     cursor: pointer; transition: border-color 0.15s;
   }
   .thumb.active { border-color: var(--accent); }
-  .thumb:hover  { border-color: #555; }
+  .thumb:hover  { border-color: var(--accent); }
 
   /* Kategorija */
   .category-info {
@@ -64,20 +64,20 @@
     margin-top: 12px; font-size: 12px; color: var(--text-muted);
   }
 
-  /* Pozicijos valdymas */
+  /* Kompozicijos valdymas */
   .position-controls { margin-top: 16px; }
   .position-row {
     display: flex; align-items: center;
     justify-content: center; gap: 8px;
   }
   .pos-btn {
-    background: var(--bg-3); border: 1px solid var(--border);
+    background: var(--bg-2); border: 1px solid var(--border);
     color: var(--text); width: 40px; height: 40px;
     border-radius: var(--radius-sm); font-size: 16px;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.15s;
   }
-  .pos-btn:hover { background: var(--bg-2); border-color: var(--accent); color: var(--accent); }
+  .pos-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
 
   /* Zonos */
   .zone-btns {
@@ -85,14 +85,22 @@
     justify-content: center; margin-top: 10px;
   }
   .zone-btn {
-    padding: 6px 14px; background: var(--bg-3);
+    padding: 6px 14px; background: var(--bg-2);
     border: 1px solid var(--border); border-radius: 20px;
     font-size: 12px; color: var(--text-muted); transition: all 0.15s;
   }
-  .zone-btn:hover { border-color: #555; color: var(--text); }
+  .zone-btn:hover { border-color: var(--accent); color: var(--accent); }
   .zone-btn.active {
     border-color: var(--accent); color: var(--accent);
-    background: rgba(232,201,126,0.08);
+    background: var(--accent-light);
+  }
+
+  .preview-hint {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
   }
 
   /* ── Dešinė ─────────────────────────────────────────────── */
@@ -117,15 +125,15 @@
   /* Filtro mini */
   .filter-mini { display: flex; gap: 6px; flex-wrap: wrap; }
   .filter-mini-btn {
-    padding: 5px 12px; background: var(--bg-3);
+    padding: 5px 12px; background: var(--bg-2);
     border: 1px solid var(--border); border-radius: 20px;
     font-size: 11px; font-weight: 500; text-transform: uppercase;
     letter-spacing: 0.5px; color: var(--text-muted); transition: all 0.15s;
   }
-  .filter-mini-btn:hover { border-color: #555; color: var(--text); }
+  .filter-mini-btn:hover { border-color: var(--accent); color: var(--accent); }
   .filter-mini-btn.active {
     border-color: var(--accent); color: var(--accent);
-    background: rgba(232,201,126,0.08);
+    background: var(--accent-light);
   }
 
   /* Veiksmo mygtukai */
@@ -136,7 +144,7 @@
   /* Generate overlay */
   #generateOverlay {
     display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.6); z-index: 200;
+    background: rgba(255,255,255,0.7); z-index: 200;
     align-items: center; justify-content: center;
     flex-direction: column; gap: 16px;
     font-size: 15px; color: var(--text-muted);
@@ -189,9 +197,9 @@
       <span class="badge badge-gold">{{ post.post_type }}</span>
     </div>
 
-    <!-- Pozicijos valdymas -->
+    <!-- Kompozicijos valdymas -->
     <div class="position-controls">
-      <p class="label" style="text-align:center;margin-bottom:10px">Teksto pozicija</p>
+      <p class="label" style="text-align:center;margin-bottom:10px">Teksto kompozicija</p>
       <div class="position-row">
         <button class="pos-btn" onclick="move(0,-20)">↑</button>
       </div>
@@ -208,6 +216,10 @@
         <button class="zone-btn active" onclick="setZone('bottom', this)">Apačia</button>
         <button class="zone-btn" onclick="setZone('middle', this)">Vidurys</button>
       </div>
+      <p class="preview-hint">
+        Ant nuotraukos rodoma sutrumpinta teksto versija.<br>
+        Pilnas tekstas matomas caption bloke žemiau.
+      </p>
     </div>
   </div>
 
@@ -218,7 +230,7 @@
       <p class="panel-subtitle">
         Pirmiausia spustelėk
         <strong style="color:var(--accent)">Generuoti tekstą</strong>,
-        tada redaguok ir atnaujink preview.
+        tada redaguok ir pritaikyk ant nuotraukos.
       </p>
     </div>
 
@@ -280,7 +292,7 @@
     <!-- Veiksmai -->
     <div class="action-grid">
       <button class="btn btn-secondary" onclick="saveAndRefine()">✨ AI patobulinti</button>
-      <button class="btn btn-secondary" onclick="saveAndRender()">🖼 Atnaujinti preview</button>
+      <button class="btn btn-secondary" onclick="saveAndRender()">🖼 Pritaikyti ant nuotraukos</button>
     </div>
 
     <a href="/download/{{ post.id }}"
@@ -316,9 +328,9 @@ async function generateText() {
     const data = await res.json();
     if (data.error) { showToast(data.error, 'error'); return; }
 
-    document.getElementById('hookText').value        = data.hook    || '';
-    document.getElementById('storyText').value       = data.story   || '';
-    document.getElementById('ctaText').value         = data.cta     || '';
+    document.getElementById('hookText').value         = data.hook    || '';
+    document.getElementById('storyText').value        = data.story   || '';
+    document.getElementById('ctaText').value          = data.cta     || '';
     document.getElementById('captionBox').textContent = data.caption || '';
 
     showToast('Tekstas sugeneruotas! 🎉');
@@ -405,7 +417,7 @@ async function saveAndRefine() {
 
 async function saveAndRender() {
   await renderPreview();
-  showToast('Preview atnaujintas');
+  showToast('Tekstas pritaikytas ant nuotraukos');
 }
 
 /* ── Pozicija ───────────────────────────────────────────── */

@@ -6,9 +6,11 @@ from flask import (
 )
 from database.models import Upload, Post, PostUpload
 from utils.post_helpers import create_post_with_uploads, validate_upload_count
-from utils.caption_generator import generate_caption, refine_caption
 from utils.text_placement import process_image_with_text
 from utils.constants import VALID_GOALS, VALID_CTA_TYPES, AVAILABLE_FILTERS, IDX_TO_CATEGORY
+
+# ── caption_generator importuojamas tik generate/refine viduje ─
+# Tai apsaugo app paleidimą jei anthropic nėra arba API raktas netvarkingas
 
 user_bp = Blueprint("user", __name__)
 
@@ -159,6 +161,9 @@ def preview(post_id: int):
 # ── Nuotraukos klasifikavimas ir teksto generavimas ────────────
 @user_bp.route("/generate/<int:post_id>", methods=["POST"])
 def generate(post_id: int):
+    # ── Lazy import — neblokuoja app paleidimo ─────────────────
+    from utils.caption_generator import generate_caption
+
     post = g.db.query(Post).filter_by(id=post_id).first()
     if not post:
         return jsonify({"error": "Postas nerastas"}), 404
@@ -266,6 +271,9 @@ def adjust(post_id: int):
 # ── AI teksto tobulinimas ──────────────────────────────────────
 @user_bp.route("/refine/<int:post_id>", methods=["POST"])
 def refine(post_id: int):
+    # ── Lazy import — neblokuoja app paleidimo ─────────────────
+    from utils.caption_generator import refine_caption
+
     post = g.db.query(Post).filter_by(id=post_id).first()
     if not post:
         return jsonify({"error": "Postas nerastas"}), 404
@@ -344,6 +352,7 @@ def render_image(post_id: int):
             offset_x    = offset_x,
             offset_y    = offset_y,
             filter_name = filter_name,
+            post_type   = post.post_type,  # story / carousel
         )
 
         post.output_path = output_path
