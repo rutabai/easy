@@ -54,4 +54,3 @@ if __name__ == "__main__":
     debug_mode = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     app.run(debug=debug_mode)
 
-print("DB absolute path:", os.path.abspath(engine.url.database))
