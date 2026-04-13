@@ -27,3 +27,5 @@ def init_db():
     from database.models import Upload, Post, PostUpload, TrainingImage, TrainingSession
     Base.metadata.create_all(bind=engine)
     print("✅ Duomenų bazė sukurta!")
+
+print("DB absolute path:", os.path.abspath(engine.url.database))

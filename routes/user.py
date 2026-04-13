@@ -1,5 +1,7 @@
 import os
 import uuid
+import zipfile
+import io
 from flask import (
     Blueprint, render_template, request,
     redirect, url_for, jsonify, send_file, g, current_app
@@ -8,9 +10,6 @@ from database.models import Upload, Post, PostUpload
 from utils.post_helpers import create_post_with_uploads, validate_upload_count
 from utils.text_placement import process_image_with_text
 from utils.constants import VALID_GOALS, VALID_CTA_TYPES, AVAILABLE_FILTERS, IDX_TO_CATEGORY
-
-# ── caption_generator importuojamas tik generate/refine viduje ─
-# Tai apsaugo app paleidimą jei anthropic nėra arba API raktas netvarkingas
 
 user_bp = Blueprint("user", __name__)
 
@@ -29,7 +28,6 @@ def _allowed_file(filename: str) -> bool:
 
 
 def _save_upload(file, upload_folder: str) -> tuple[str, str, str]:
-    """Išsaugo įkeltą failą. Grąžina (original_name, filename, filepath)."""
     original_name = file.filename
     ext           = original_name.rsplit(".", 1)[1].lower()
     filename      = f"{uuid.uuid4().hex}.{ext}"
@@ -39,9 +37,22 @@ def _save_upload(file, upload_folder: str) -> tuple[str, str, str]:
 
 
 def _build_caption_from_parts(hook: str, story: str, cta: str) -> str:
-    """Sudaro caption iš atskirų dalių."""
     parts = [p for p in [hook, story, f"→ {cta}" if cta else ""] if p]
     return "\n\n".join(parts)
+
+
+def _get_slide_texts(pu: PostUpload, post: Post) -> tuple[str, str, str]:
+    """
+    Pagal slide_type nustato kokį hook/body/cta rodyti ant skaidrės.
+    Kiekviena skaidrė gauna skirtingą teksto kompoziciją.
+    """
+    if pu.slide_type in ("single", "hook"):
+        return post.hook or "", "", ""
+    elif pu.slide_type == "story":
+        return "", pu.slide_text or post.story or "", ""
+    elif pu.slide_type == "cta":
+        return "", "", post.cta or ""
+    return post.hook or "", post.story or "", post.cta or ""
 
 
 # ── Pagrindinis puslapis ───────────────────────────────────────
@@ -161,7 +172,6 @@ def preview(post_id: int):
 # ── Nuotraukos klasifikavimas ir teksto generavimas ────────────
 @user_bp.route("/generate/<int:post_id>", methods=["POST"])
 def generate(post_id: int):
-    # ── Lazy import — neblokuoja app paleidimo ─────────────────
     from utils.caption_generator import generate_caption
 
     post = g.db.query(Post).filter_by(id=post_id).first()
@@ -177,7 +187,7 @@ def generate(post_id: int):
     slide_count  = len(post_uploads)
     first_upload = post_uploads[0].upload if post_uploads else None
 
-    # 1. Klasifikuok pirmą nuotrauką su ViT
+    # Klasifikuok pirmą nuotrauką su ViT
     if first_upload:
         try:
             from models.vit_model import load_vit_model, predict_single_vit
@@ -207,7 +217,6 @@ def generate(post_id: int):
     post.status = "processing"
     g.db.commit()
 
-    # 2. Generuok tekstą
     try:
         result = generate_caption(
             category         = category,
@@ -225,7 +234,6 @@ def generate(post_id: int):
         post.caption = result.get("caption", "")
         post.status  = "completed"
 
-        # 3. Užpildyk slide_text
         for pu in post_uploads:
             if pu.slide_type in ("single", "hook"):
                 pu.slide_text = post.hook
@@ -257,11 +265,8 @@ def adjust(post_id: int):
     post.hook  = data.get("hook",  post.hook)
     post.story = data.get("story", post.story)
     post.cta   = data.get("cta",   post.cta)
-
     post.caption = _build_caption_from_parts(
-        post.hook  or "",
-        post.story or "",
-        post.cta   or "",
+        post.hook or "", post.story or "", post.cta or ""
     )
 
     g.db.commit()
@@ -271,7 +276,6 @@ def adjust(post_id: int):
 # ── AI teksto tobulinimas ──────────────────────────────────────
 @user_bp.route("/refine/<int:post_id>", methods=["POST"])
 def refine(post_id: int):
-    # ── Lazy import — neblokuoja app paleidimo ─────────────────
     from utils.caption_generator import refine_caption
 
     post = g.db.query(Post).filter_by(id=post_id).first()
@@ -284,9 +288,7 @@ def refine(post_id: int):
 
     user_edit = data.get("user_edit", "")
     original  = _build_caption_from_parts(
-        post.hook  or "",
-        post.story or "",
-        post.cta   or "",
+        post.hook or "", post.story or "", post.cta or ""
     )
 
     try:
@@ -310,7 +312,7 @@ def refine(post_id: int):
         return jsonify({"error": str(e)}), 500
 
 
-# ── Nuotraukos renderinimas su tekstu ─────────────────────────
+# ── Nuotraukos renderinimas ────────────────────────────────────
 @user_bp.route("/render/<int:post_id>", methods=["POST"])
 def render_image(post_id: int):
     post = g.db.query(Post).filter_by(id=post_id).first()
@@ -327,42 +329,57 @@ def render_image(post_id: int):
         return jsonify({"error": f"Nežinomas filtras: {filter_name}"}), 400
 
     post.filter_name = filter_name
+    output_folder    = current_app.config["OUTPUT_FOLDER"]
 
-    first_pu = (
+    post_uploads = (
         g.db.query(PostUpload)
         .filter_by(post_id=post_id)
         .order_by(PostUpload.position)
-        .first()
+        .all()
     )
-    if not first_pu:
-        return jsonify({"error": "Nuotrauka nerasta"}), 404
-
-    output_folder = current_app.config["OUTPUT_FOLDER"]
-    output_path   = os.path.join(output_folder, f"post_{post_id}.jpg")
+    if not post_uploads:
+        return jsonify({"error": "Nuotraukos nerastos"}), 404
 
     try:
-        process_image_with_text(
-            image_path  = first_pu.upload.filepath,
-            hook        = post.hook  or "",
-            body        = post.story or "",
-            cta         = post.cta   or "",
-            output_path = output_path,
-            category    = post.predicted_category,
-            zone        = zone,
-            offset_x    = offset_x,
-            offset_y    = offset_y,
-            filter_name = filter_name,
-            post_type   = post.post_type,  # story / carousel
-        )
+        image_urls = []
 
-        post.output_path = output_path
+        for pu in post_uploads:
+            hook, body, cta = _get_slide_texts(pu, post)
+
+            output_path = os.path.join(
+                output_folder,
+                f"post_{post_id}_slide_{pu.position}.jpg"
+            )
+
+            process_image_with_text(
+                image_path  = pu.upload.filepath,
+                hook        = hook,
+                body        = body,
+                cta         = cta,
+                output_path = output_path,
+                category    = post.predicted_category,
+                zone        = zone,
+                offset_x    = offset_x,
+                offset_y    = offset_y,
+                filter_name = filter_name,
+                post_type   = post.post_type,
+            )
+
+            pu.output_image_path = output_path
+
+            # Pirmosios skaidrės kelias — story atgaliniam suderinamumui
+            if pu.position == 1:
+                post.output_path = output_path
+
+            relative  = output_path.replace("\\", "/").replace("static/", "", 1)
+            image_urls.append(url_for("static", filename=relative))
+
         g.db.commit()
 
-        relative = output_path.replace("\\", "/")
-        relative = relative.replace("static/", "", 1)
         return jsonify({
-            "success":   True,
-            "image_url": url_for("static", filename=relative),
+            "success":    True,
+            "image_url":  image_urls[0],   # pirmoji skaidrė preview
+            "image_urls": image_urls,       # visos skaidrės carousel
         })
 
     except Exception as e:
@@ -373,14 +390,43 @@ def render_image(post_id: int):
 @user_bp.route("/download/<int:post_id>")
 def download(post_id: int):
     post = g.db.query(Post).filter_by(id=post_id).first()
-    if not post or not post.output_path:
-        return "Nuotrauka nerasta", 404
+    if not post:
+        return "Postas nerastas", 404
 
-    if not os.path.exists(post.output_path):
-        return "Failas nerastas diske", 404
+    post_uploads = (
+        g.db.query(PostUpload)
+        .filter_by(post_id=post_id)
+        .order_by(PostUpload.position)
+        .all()
+    )
 
+    # Surink visus sugeneruotus failus
+    output_files = [
+        pu.output_image_path for pu in post_uploads
+        if pu.output_image_path and os.path.exists(pu.output_image_path)
+    ]
+
+    if not output_files:
+        return "Nuotraukos dar nesugenenuotos", 404
+
+    # Story — vienas failas
+    if post.post_type == "story" and len(output_files) == 1:
+        return send_file(
+            output_files[0],
+            as_attachment = True,
+            download_name = f"instagram_story_{post_id}.jpg",
+        )
+
+    # Carousel — ZIP archyvas
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, filepath in enumerate(output_files, start=1):
+            zf.write(filepath, arcname=f"slide_{i}.jpg")
+
+    zip_buffer.seek(0)
     return send_file(
-        post.output_path,
+        zip_buffer,
         as_attachment = True,
-        download_name = f"instagram_post_{post_id}.jpg",
+        download_name = f"instagram_carousel_{post_id}.zip",
+        mimetype      = "application/zip",
     )

@@ -38,17 +38,13 @@ class Post(Base):
 
     # ── Vartotojo intencija ────────────────────────────────────────
     topic: Mapped[str | None] = mapped_column(Text)
-    # sell / inform / engage / brand_awareness / traffic
     goal: Mapped[str | None] = mapped_column(String(50))
-    # visit_shop / visit_profile / send_message / save_post / comment / click_link
     cta_type: Mapped[str | None] = mapped_column(String(50))
     additional_notes: Mapped[str | None] = mapped_column(Text)
 
     # ── Modelio spėjimas ───────────────────────────────────────────
-    # food / portrait / landscape / product / lifestyle
     predicted_category: Mapped[str | None] = mapped_column(String(50))
     confidence: Mapped[float | None] = mapped_column(Float)
-    # cnn / vit / knn
     model_used: Mapped[str | None] = mapped_column(String(20))
 
     # ── Sugeneruotas tekstas ───────────────────────────────────────
@@ -58,7 +54,10 @@ class Post(Base):
     caption: Mapped[str | None] = mapped_column(Text)
 
     filter_name: Mapped[str | None] = mapped_column(String(20), default="original")
+
+    # Story atveju — vieno failo kelias
     output_path: Mapped[str | None] = mapped_column(String(500))
+
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
 
     upload_links: Mapped[list["PostUpload"]] = relationship(back_populates="post")
@@ -71,9 +70,6 @@ class PostUpload(Base):
     """Tarpinė lentelė — susieja Post ir Upload"""
     __tablename__ = "post_uploads"
 
-    # Unikalumo apribojimai:
-    # - tas pats post_id + position negali kartotis (pozicija unikali viename poste)
-    # - tas pats post_id + upload_id negali kartotis (ta pati nuotrauka du kartus)
     __table_args__ = (
         UniqueConstraint("post_id", "position", name="uq_post_position"),
         UniqueConstraint("post_id", "upload_id", name="uq_post_upload"),
@@ -88,6 +84,9 @@ class PostUpload(Base):
     slide_type: Mapped[str | None] = mapped_column(String(20))
     slide_text: Mapped[str | None] = mapped_column(Text)
 
+    # Kiekvienos skaidrės sugeneruoto vaizdo kelias
+    output_image_path: Mapped[str | None] = mapped_column(String(500))
+
     post: Mapped["Post"] = relationship(back_populates="upload_links")
     upload: Mapped["Upload"] = relationship(back_populates="post_links")
 
@@ -101,11 +100,8 @@ class TrainingImage(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    # unique=True — tas pats failas negali būti įkeltas du kartus
     filepath: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
-    # food / portrait / landscape / product / lifestyle
     category: Mapped[str] = mapped_column(String(50), nullable=False)
-    # train / val / test
     split: Mapped[str] = mapped_column(String(10), nullable=False)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
@@ -123,24 +119,20 @@ class TrainingSession(Base):
     __tablename__ = "training_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # cnn / vit / knn
     model_type: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    # Hyperparametrai
     learning_rate: Mapped[float | None] = mapped_column(Float)
     batch_size: Mapped[int | None] = mapped_column(Integer)
     epochs: Mapped[int | None] = mapped_column(Integer)
     optimizer: Mapped[str | None] = mapped_column(String(50))
     dropout: Mapped[float | None] = mapped_column(Float)
 
-    # Rezultatai
     train_accuracy: Mapped[float | None] = mapped_column(Float)
     val_accuracy: Mapped[float | None] = mapped_column(Float)
     test_accuracy: Mapped[float | None] = mapped_column(Float)
     train_loss: Mapped[float | None] = mapped_column(Float)
     val_loss: Mapped[float | None] = mapped_column(Float)
 
-    # Metrikos
     precision: Mapped[float | None] = mapped_column(Float)
     recall: Mapped[float | None] = mapped_column(Float)
     f1_score: Mapped[float | None] = mapped_column(Float)
