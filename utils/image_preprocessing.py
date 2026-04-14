@@ -6,6 +6,12 @@ import os
 # Standartinis dydis visiems modeliams
 from utils.constants import IMAGE_SIZE
 
+import json
+import cv2
+import numpy as np
+from skimage.feature import hog
+
+
 # ImageNet normalizacijos reikšmės (tinka CNN ir ViT)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD  = [0.229, 0.224, 0.225]
@@ -81,3 +87,32 @@ def denormalize(tensor: torch.Tensor) -> torch.Tensor:
     mean = torch.tensor(IMAGENET_MEAN, device=tensor.device).view(3, 1, 1)
     std  = torch.tensor(IMAGENET_STD, device=tensor.device).view(3, 1, 1)
     return torch.clamp(tensor * std + mean, 0, 1)
+
+
+def extract_hog_features(image_path: str) -> str | None:
+    """
+    Ištraukia HOG požymius iš nuotraukos ir grąžina JSON tekstą.
+    Jei nepavyksta – grąžina None.
+    """
+    try:
+        img = cv2.imread(image_path)
+        if img is None:
+            return None
+
+        img = cv2.resize(img, (128, 128))
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        features = hog(
+            gray,
+            orientations=9,
+            pixels_per_cell=(8, 8),
+            cells_per_block=(2, 2),
+            visualize=False,
+            feature_vector=True,
+        )
+
+        return json.dumps(features.tolist())
+
+    except Exception as e:
+        print(f"⚠️ HOG išgavimas nepavyko {image_path}: {e}")
+        return None

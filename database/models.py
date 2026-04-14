@@ -108,7 +108,9 @@ class TrainingImage(Base):
     file_size: Mapped[int | None] = mapped_column(Integer)
     source: Mapped[str | None] = mapped_column(String(100))
     is_augmented: Mapped[bool] = mapped_column(Boolean, default=False)
+    hog_features: Mapped[str | None] = mapped_column(Text) # Saugosime kaip JSON stringą
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=func.now())
+   
 
     def __repr__(self):
         return f"<TrainingImage {self.filename} | {self.category} | {self.split}>"

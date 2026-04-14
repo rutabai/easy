@@ -4,11 +4,10 @@ from pathlib import Path
 from PIL import Image as PILImage
 from sqlalchemy.orm import Session
 from database.models import TrainingImage
+from utils.image_preprocessing import extract_hog_features
 
 # Kategorijos
 from utils.constants import CATEGORIES, SPLIT_RATIOS
-
-# Duomenų padalijimas
 
 # Atkartojamas atsitiktinumas
 RANDOM_SEED = 42
@@ -38,7 +37,6 @@ def collect_image_files(category_path: Path) -> list[Path]:
     for ext in ["*.jpg", "*.jpeg", "*.png", "*.webp"]:
         image_files.extend(category_path.glob(ext))
 
-    # Sumaišom prieš splitą — vietinis generatorius kad nedarytų įtakos global state
     rng = random.Random(RANDOM_SEED)
     rng.shuffle(image_files)
     return image_files
@@ -78,13 +76,11 @@ def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
             print(f"⚠️  Aplankas nerastas: {category_path}")
             continue
 
-        # Surink ir sumaišyk failus
         image_files = collect_image_files(category_path)
         total = len(image_files)
         print(f"📁 {category}: {total} nuotraukų")
 
         for i, filepath in enumerate(image_files):
-            # Patikrink ar jau įkelta
             existing = db.query(TrainingImage).filter_by(
                 filepath=str(filepath)
             ).first()
@@ -93,6 +89,7 @@ def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
 
             split = assign_split(i, total)
             info = get_image_info(str(filepath))
+            hog_features = extract_hog_features(str(filepath))
 
             image = TrainingImage(
                 filename=filepath.name,
@@ -103,19 +100,29 @@ def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
                 height=info["height"],
                 file_size=info["file_size"],
                 source=source,
-                is_augmented=False
+                is_augmented=False,
+                hog_features=hog_features,
             )
             db.add(image)
             stats[category][split] += 1
 
         db.commit()
-        print(f"   ✅ train={stats[category]['train']} | val={stats[category]['val']} | test={stats[category]['test']}")
+        print(
+            f"   ✅ train={stats[category]['train']} | "
+            f"val={stats[category]['val']} | "
+            f"test={stats[category]['test']}"
+        )
 
     return stats
 
 
-def add_single_image(filepath: str, category: str, split: str,
-                     db: Session, source: str = "manual") -> TrainingImage:
+def add_single_image(
+    filepath: str,
+    category: str,
+    split: str,
+    db: Session,
+    source: str = "manual"
+) -> TrainingImage:
     """
     Prideda vieną nuotrauką į treniravimo duomenis per Flask UI.
     Tikrina ar toks failas jau egzistuoja DB.
@@ -129,12 +136,12 @@ def add_single_image(filepath: str, category: str, split: str,
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Failas nerastas: {filepath}")
 
-    # Tikrink ar jau egzistuoja DB
     existing = db.query(TrainingImage).filter_by(filepath=filepath).first()
     if existing:
         raise ValueError(f"Šis failas jau yra DB: {filepath}")
 
     info = get_image_info(filepath)
+    hog_features = extract_hog_features(str(filepath))
 
     image = TrainingImage(
         filename=os.path.basename(filepath),
@@ -145,7 +152,8 @@ def add_single_image(filepath: str, category: str, split: str,
         height=info["height"],
         file_size=info["file_size"],
         source=source,
-        is_augmented=False
+        is_augmented=False,
+        hog_features=hog_features,
     )
     db.add(image)
     db.commit()
