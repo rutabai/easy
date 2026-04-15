@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from transformers import ViTForImageClassification, ViTImageProcessor
+from transformers import ViTForImageClassification, ViTImageProcessor      #ViTForImageClassification — HuggingFace pretrained ViT modelis. ViTImageProcessor — specialus įrankis kuris paruošia nuotraukas ViT formatui (resize, normalizacija pagal ImageNet statistiką).
 from sqlalchemy.orm import Session
 
 from utils.constants import CATEGORIES, NUM_CLASSES, IDX_TO_CATEGORY
@@ -12,9 +12,9 @@ VIT_MODEL_NAME = "google/vit-base-patch16-224"
 
 # Train augmentacijos prieš ViTImageProcessor
 TRAIN_AUGMENTATIONS = transforms.Compose([
-    transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
-    transforms.RandomHorizontalFlip(p=0.5),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+    transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),                                    # atsitiktinai apkarpoma nuotrauka ir pakeičiamas dydis į 224x224. scale=(0.8, 1.0) reiškia apkarpoma nuo 80% iki 100% originalaus dydžio.
+    transforms.RandomHorizontalFlip(p=0.5),                                                 # 50% tikimybe nuotrauka apverčiama horizontaliai.
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),                   # atsitiktinai keičiamas ryškumas, kontrastas ir sodrumas iki 20%.
 ])
 
 
@@ -28,22 +28,22 @@ class ViTModel(nn.Module):
     def __init__(self, num_classes: int = NUM_CLASSES, freeze_backbone: bool = False):
         super().__init__()
 
-        self.vit = ViTForImageClassification.from_pretrained(
+        self.vit = ViTForImageClassification.from_pretrained(                                   # parsisiunčia pretrained Google ViT modelį iš HuggingFace ir išsaugo kaip klasės atributą.
             VIT_MODEL_NAME,
             num_labels=num_classes,
             ignore_mismatched_sizes=True,
         )
 
-        if freeze_backbone:
-            for param in self.vit.vit.parameters():
+        if freeze_backbone:                                                                      # backbone svoriai neliečiami, treniruojamas tik classifier. Greičiau, mažiau duomenų reikia.
+            for param in self.vit.vit.parameters():                                              # backbone — pagrindinė dalis kuri jau "supranta" nuotraukas — ištraukia savybes. Ji istreniruota ant milijonų nuotraukų.
                 param.requires_grad = False
-            print("🔒 ViT backbone užšaldytas — treniruojamas tik classifier")
+            print("ViT backbone užšaldytas — treniruojamas tik classifier")                     
         else:
-            print("🔓 ViT fine-tuning — treniruojamas visas modelis")
+            print("ViT fine-tuning — treniruojamas visas modelis")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        outputs = self.vit(pixel_values=x)
-        return outputs.logits
+        outputs = self.vit(pixel_values=x)                                                      # paleidžia nuotrauką per ViT modelį. pixel_values yra būtinas parametro pavadinimas kurį ViT reikalauja.
+        return outputs.logits                                                                   # grąžina 5 skaičius kiekvienai kategorijai. logits yra neapdoroti spėjimai prieš softmax — vėliau predict_single_vit funkcija pritaiko softmax ir gauna tikimybes.
 
 
 class ViTDataset(torch.utils.data.Dataset):
@@ -93,13 +93,13 @@ def build_vit_dataloaders(db: Session, batch_size: int = 16) -> tuple[dict, ViTI
         count = db.query(TrainingImage).filter_by(split=split).count()
         if count == 0:
             raise ValueError(
-                f"❌ '{split}' splitas tuščias! "
+                f"'{split}' splitas tuščias! "
                 f"Paleisk load_data_to_db() prieš treniravimą."
             )
 
     test_count = db.query(TrainingImage).filter_by(split="test").count()
     if test_count == 0:
-        print("⚠️  'test' splitas tuščias — testavimas nebus galimas.")
+        print("'test' splitas tuščias — testavimas nebus galimas.")
 
     loaders = {}
     for split in ["train", "val", "test"]:
@@ -157,7 +157,7 @@ def get_vit_model(freeze_backbone: bool = False) -> ViTModel:
 def save_vit_model(model: ViTModel, path: str) -> None:
     """Išsaugo ViT modelį į failą."""
     torch.save(model.state_dict(), path)
-    print(f"✅ ViT modelis išsaugotas: {path}")
+    print(f"ViT modelis išsaugotas: {path}")
 
 
 def load_vit_model(path: str, freeze_backbone: bool = False) -> ViTModel:
@@ -165,5 +165,5 @@ def load_vit_model(path: str, freeze_backbone: bool = False) -> ViTModel:
     model = ViTModel(num_classes=NUM_CLASSES, freeze_backbone=freeze_backbone)
     model.load_state_dict(torch.load(path, map_location="cpu"))
     model.eval()
-    print(f"✅ ViT modelis įkeltas: {path}")
+    print(f"ViT modelis įkeltas: {path}")
     return model

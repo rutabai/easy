@@ -13,7 +13,7 @@ from utils.constants import MAX_UPLOADS, MIN_UPLOADS, VALID_GOALS, VALID_CTA_TYP
 # cta    → paskutinė carousel skaidrė
 
 
-def validate_upload_count(post_type: str, count: int) -> tuple[bool, str]:
+def validate_upload_count(post_type: str, count: int) -> tuple[bool, str]:                                      #tikrina, ar nuotrauku skaicius atitinka pasirinktam posto tipui
     """Tikrina ar nuotraukų skaičius atitinka posto tipą."""
     if post_type not in MIN_UPLOADS:
         return False, f"Nežinomas posto tipas: {post_type}. Galimi: {list(MIN_UPLOADS.keys())}"
@@ -40,7 +40,7 @@ def assign_slide_types(count: int) -> list[str]:
     2 → ["hook", "cta"]
     3+ → ["hook", "story"..., "cta"]
     """
-    if count < MIN_UPLOADS["story"]:
+    if count < MIN_UPLOADS["story"]:                                                                        #defensive programming, kai funkcija papildomai tikrinama antra karta
         raise ValueError(f"Nuotraukų skaičius negali būti mažesnis nei {MIN_UPLOADS['story']}")
     if count > MAX_UPLOADS["carousel"]:
         raise ValueError(f"Nuotraukų skaičius negali viršyti {MAX_UPLOADS['carousel']}")
@@ -50,11 +50,11 @@ def assign_slide_types(count: int) -> list[str]:
     elif count == MIN_UPLOADS["carousel"]:
         return ["hook", "cta"]
     else:
-        middle = ["story"] * (count - 2)
+        middle = ["story"] * (count - 2)                                                                    #jeigu yra daugiau nuotrauku nei 2, tuomet vidurines nuotraukas padaro story
         return ["hook"] + middle + ["cta"]
 
 
-def create_post_with_uploads(
+def create_post_with_uploads(                                                                               #funkcija sukuria posta duomenu bazeje
     db: Session,
     upload_ids: list[int],
     post_type: str,
@@ -87,12 +87,12 @@ def create_post_with_uploads(
     if len(upload_ids) != len(set(upload_ids)):
         raise ValueError("upload_ids sąraše yra pasikartojančių ID")
 
-    # Validuok kiekį pagal tipo taisykles
+    # Validuok kiekį pagal tipo taisykles. Reikia validuoti, nes skirtingi posto tipai turi skirtingus reikalavmus. story 1 nuotrauka, carousel maziausiai 2
     valid, error = validate_upload_count(post_type, count)
     if not valid:
         raise ValueError(error)
 
-    # Validuok goal ir cta_type
+    # Validuok goal ir cta_type. Validuojama ,nes sios reiksmes veliau naudojamos tksto generavime AI prompte, kur nurodoma kokio tipo teksta generuoti
     valid, error = validate_intent(goal, cta_type)
     if not valid:
         raise ValueError(error)
@@ -118,8 +118,8 @@ def create_post_with_uploads(
         db.add(post)
         db.flush()  # gauti post.id prieš PostUpload kūrimą
 
-        # Priskyrk slide tipus ir sukurk ryšius
-        slide_types = assign_slide_types(count)
+        # Priskirk slide tipus ir sukurk ryšius
+        slide_types = assign_slide_types(count)                                                 #suskaiciuoja kiek kokiu nuotrauku tipu yra        
 
         for position, (upload_id, slide_type) in enumerate(
             zip(upload_ids, slide_types), start=1
@@ -136,6 +136,6 @@ def create_post_with_uploads(
         db.commit()
         return post
 
-    except Exception as e:
-        db.rollback()
+    except Exception as e:                                                      #e-klaidos objektas
+        db.rollback()                                                           #rollback atsaukia visus DB pakeitimus
         raise e

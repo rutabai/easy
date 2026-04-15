@@ -1,16 +1,18 @@
-import os
-import random
-from pathlib import Path
-from PIL import Image as PILImage
+import os                                                                               
+import random                                                                           #nuotrauku sumaisymui
+from pathlib import Path                                                                #modernesne os.path verija
+from PIL import Image as PILImage                                                       #Pillow biblioteka, kuri atidaro nuotraukas ir istraukia duoenis(widthxheight)
 from sqlalchemy.orm import Session
 from database.models import TrainingImage
-from utils.image_preprocessing import extract_hog_features
+from utils.image_preprocessing import extract_hog_features                              #HOG pozymiu istraukimo funkcija
 
+
+#eina per data aplankus, kiekvienai nuotraukai istraukia meraduomenis ir HOG pozymius, priskiria train/val/test frupes ir iraso i trainimage lentele DB
 # Kategorijos
 from utils.constants import CATEGORIES, SPLIT_RATIOS
 
 # Atkartojamas atsitiktinumas
-RANDOM_SEED = 42
+RANDOM_SEED = 42                                                                         #uztikrina, kad atsitiktinis sumaisymas visada bus vienodas. Visada tos pacios nuotraukos tose paciose grupese
 
 
 def get_image_info(filepath: str) -> dict:
@@ -21,14 +23,14 @@ def get_image_info(filepath: str) -> dict:
     try:
         with PILImage.open(filepath) as img:
             width, height = img.size
-        file_size = os.path.getsize(filepath)
+        file_size = os.path.getsize(filepath)                                            #paima nuotraukos dydi baitais
         return {"width": width, "height": height, "file_size": file_size}
     except Exception as e:
         print(f"⚠️  Nepavyko nuskaityti {filepath}: {e}")
         return {"width": None, "height": None, "file_size": None}
 
 
-def collect_image_files(category_path: Path) -> list[Path]:
+def collect_image_files(category_path: Path) -> list[Path]:                               #eina per failus ir sudeda nuotraukas i sarasa
     """
     Surenka visus nuotraukų failus iš aplanko.
     Sumaišo failus prieš grąžinant — kad split būtų atsitiktinis.
@@ -39,10 +41,10 @@ def collect_image_files(category_path: Path) -> list[Path]:
 
     rng = random.Random(RANDOM_SEED)
     rng.shuffle(image_files)
-    return image_files
+    return image_files                                                                    #grazina sumaisytu nuotrauku sarasa
 
 
-def assign_split(index: int, total: int) -> str:
+def assign_split(index: int, total: int) -> str:                                          #suskirsto nuotraukas i treain, val ir test pagal indeksa
     """Priskiria split pagal indeksą (70/15/15)"""
     train_end = int(total * SPLIT_RATIOS["train"])
     val_end = train_end + int(total * SPLIT_RATIOS["val"])
@@ -66,33 +68,33 @@ def load_data_to_db(data_dir: str, db: Session, source: str = "kaggle") -> dict:
         ├── product/
         └── lifestyle/
     """
-    stats = {cat: {"train": 0, "val": 0, "test": 0} for cat in CATEGORIES}
-    data_path = Path(data_dir)
+    stats = {cat: {"train": 0, "val": 0, "test": 0} for cat in CATEGORIES}                  #sukuria statistikos zodyna ir skaiciuoja kiek ikelta
+    data_path = Path(data_dir)                                                              #pavercia teksta i path objekta, kad butu galima naudoti
 
-    for category in CATEGORIES:
+    for category in CATEGORIES:                                                             #eina per kiekviena kategorija
         category_path = data_path / category
 
         if not category_path.exists():
             print(f"⚠️  Aplankas nerastas: {category_path}")
             continue
 
-        image_files = collect_image_files(category_path)
+        image_files = collect_image_files(category_path)                                    #surenka ir sumaiso failus
         total = len(image_files)
         print(f"📁 {category}: {total} nuotraukų")
 
-        for i, filepath in enumerate(image_files):
+        for i, filepath in enumerate(image_files):                                          #eina per kiekviena nuotrauka ir tikrina ar yra dublikatu jei taip, tada praleidzia
             existing = db.query(TrainingImage).filter_by(
                 filepath=str(filepath)
             ).first()
             if existing:
                 continue
 
-            split = assign_split(i, total)
-            info = get_image_info(str(filepath))
-            hog_features = extract_hog_features(str(filepath))
+            split = assign_split(i, total)                                                  #priskiria train val test
+            info = get_image_info(str(filepath))                                            #istraukia matmenis
+            hog_features = extract_hog_features(str(filepath))                              #hog istraukia
 
-            image = TrainingImage(
-                filename=filepath.name,
+            image = TrainingImage(                                                          #sukuria trainingimage eilute ir prideda i db 
+                filename=filepath.name,     
                 filepath=str(filepath),
                 category=category,
                 split=split,
@@ -157,12 +159,12 @@ def add_single_image(
     )
     db.add(image)
     db.commit()
-    return image
+    return image        
 
 
-def get_stats(db: Session) -> dict:
+def get_stats(db: Session) -> dict:                                                              #apskaiciuoja kiek nuotrauku yra DB kiekvienoje kategorijoje ir grueje          
     """Grąžina statistiką apie treniravimo duomenų bazę"""
-    stats = {}
+    stats = {}                                                                                   #tuscias zoynas kur kaupsis statistika
     for category in CATEGORIES:
         stats[category] = {}
         for split in ["train", "val", "test"]:

@@ -32,16 +32,16 @@ def apply_filter(image: PILImage.Image, filter_name: str) -> PILImage.Image:
 def _apply_warm(image: PILImage.Image) -> PILImage.Image:
     """Šiltas filtras — padidina raudonus ir geltonus tonus."""
     img = image.convert("RGB")
-    r, g, b = img.split()
+    r, g, b = img.split()                                                           #3 kanalai r raudona, g zalia, b melyna isskaido nuotrauka i tris atskirus kanalus
 
     # Padidink raudoną ir žalią, sumažink mėlyną
-    r = r.point(lambda i: min(255, int(i * 1.15)))
-    g = g.point(lambda i: min(255, int(i * 1.05)))
-    b = b.point(lambda i: int(i * 0.85))
+    r = r.point(lambda i: min(255, int(i * 1.15)))                                  #raudonos spalvos info. kiekvienam pixeliui rahdname kanale padidina reiksmes 15 proc
+    g = g.point(lambda i: min(255, int(i * 1.05)))                                  #zalios spalvos info
+    b = b.point(lambda i: int(i * 0.85))                                            #melynos spalvos info. melyba -15 proc
 
     img = PILImage.merge("RGB", (r, g, b))
     # Šiek tiek padidink sodrumą
-    img = ImageEnhance.Color(img).enhance(1.2)
+    img = ImageEnhance.Color(img).enhance(1.2)                                      #enchas yra multiplikatorius, kuris padidina efekta
     return img
 
 
@@ -52,7 +52,7 @@ def _apply_cool(image: PILImage.Image) -> PILImage.Image:
 
     r = r.point(lambda i: int(i * 0.85))
     g = g.point(lambda i: int(i * 0.95))
-    b = b.point(lambda i: min(255, int(i * 1.15)))
+    b = b.point(lambda i: min(255, int(i * 1.15)))                                  #apsaugo nuo virsijimo. pikselio maksimali reiksme yra 255
 
     img = PILImage.merge("RGB", (r, g, b))
     img = ImageEnhance.Color(img).enhance(1.1)

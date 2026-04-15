@@ -30,7 +30,7 @@ GOAL_TRANSLATIONS = {
 }
 
 
-def _get_client() -> anthropic.Anthropic:
+def _get_client() -> anthropic.Anthropic:                                               #sukuria rysi su anthropic API. Kvieiamas tik kai reikia, paleidus programa
     """Grąžina Anthropic klientą. Sukuriamas tik kai reikia."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -38,7 +38,7 @@ def _get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=api_key)
 
 
-def _build_prompt(
+def _build_prompt(                                                                      #sukuria tekstini prompta, kuri paduoda AI. Skirtingas story ir carousel formatams
     category: str,
     post_type: str,
     topic: str | None,
